@@ -1,0 +1,122 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# openfaas-hpa.yaml — Horizontal Pod Autoscaler (Tùy chọn)
+# Đồ án NT533: K3s Serverless Data Pipeline
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Mục đích: Scale số pod 'parallel-sort' dựa trên CPU/Memory utilization.
+#
+# LƯU Ý QUAN TRỌNG — Tránh conflict với OpenFaaS built-in autoscaler:
+#   OpenFaaS có autoscaler riêng (dựa trên RPS — Requests Per Second).
+#   Kubernetes HPA dựa trên CPU/Memory.
+#   Nếu cả hai cùng chạy → có thể "tranh giành" quyền điều chỉnh replicas.
+#
+#   Khuyến nghị: Chọn MỘT trong hai:
+#     - OpenFaaS autoscaler (stack.yml annotations): phù hợp hơn cho event-driven
+#       workload vì scale theo RPS thay vì resource utilization.
+#     - Kubernetes HPA (file này): dùng khi muốn scale dựa trên CPU/Memory,
+#       và tắt OpenFaaS autoscaler bằng cách set scale.min = scale.max trong stack.yml.
+#
+# Điều kiện tiên quyết:
+#   - metrics-server phải được cài trong K3s:
+#     kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+#   - K3s thường đã có metrics-server sẵn; kiểm tra: kubectl top nodes
+#
+# Cách áp dụng:
+#   kubectl apply -f openfaas-hpa.yaml
+#
+# Cách xóa:
+#   kubectl delete -f openfaas-hpa.yaml
+#
+# ══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: autoscaling/v2    # autoscaling/v2 available từ K8s 1.23+ (K3s v1.23+)
+kind: HorizontalPodAutoscaler
+metadata:
+  name: parallel-sort-hpa
+  namespace: openfaas-fn        # Namespace OpenFaaS functions chạy trong đây
+  labels:
+    app: parallel-sort
+    component: autoscaler
+    managed-by: kubernetes-hpa
+
+spec:
+  # ── Deployment cần scale ────────────────────────────────────────────────────
+  # OpenFaaS tạo một Kubernetes Deployment cho mỗi function.
+  # Deployment name = function name (parallel-sort)
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: parallel-sort
+
+  # ── Giới hạn replica ────────────────────────────────────────────────────────
+  # Đồng bộ với com.openfaas.scale.min/max trong stack.yml
+  minReplicas: 1    # Luôn giữ 1 pod warm → tránh cold start khi Kafka message đến
+  maxReplicas: 10   # Giới hạn tài nguyên K3s cluster (2 Worker nodes)
+
+  # ── Metrics để quyết định scale ─────────────────────────────────────────────
+  metrics:
+
+    # Scale OUT khi CPU trung bình của tất cả pod vượt 60%
+    # Lý do chọn 60%: Parallel Quicksort là CPU-bound (100% một core khi sort).
+    # Giữ headroom 40% để tránh throttling khi có spike traffic đột ngột.
+    # Ví dụ: 1 pod đang dùng 60% CPU → scale lên 2 pod → mỗi pod ~30% CPU.
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60    # % của requests.cpu (200m × 60% = 120m)
+
+    # Scale OUT khi Memory trung bình vượt 75%
+    # [MEMORY] 75% của requests.memory = 75% × 256Mi = 192Mi.
+    # Peak memory khi sort 50K int với 2 workers: ~245MB > 256Mi requests
+    # → HPA sẽ trigger scale khi có nhiều concurrent invocations.
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75    # % của requests.memory (256Mi × 75% = 192Mi)
+
+  # ── Scaling Behavior ─────────────────────────────────────────────────────────
+  behavior:
+
+    # Scale UP: Phản ứng nhanh khi có workload spike từ Kafka backlog
+    scaleUp:
+      # Chờ 30 giây để đảm bảo spike là thực (không phải noise 1-2 messages)
+      # Giá trị nhỏ hơn → scale nhanh hơn nhưng có thể over-provision.
+      stabilizationWindowSeconds: 30
+
+      policies:
+        # Policy 1: Tăng tối đa 4 pod mỗi 60 giây (tránh scale quá nhanh)
+        - type: Pods
+          value: 4
+          periodSeconds: 60
+
+        # Policy 2: Tăng tối đa 100% số pod hiện tại mỗi 60 giây (gấp đôi)
+        # Ví dụ: 2 pods → tăng thêm 2 = 4 pods (nếu policy này mạnh hơn)
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+
+      # Max: áp dụng policy nào cho kết quả scale UP nhiều nhất
+      # → Đảm bảo phản ứng nhanh nhất có thể với Kafka backlog
+      selectPolicy: Max
+
+    # Scale DOWN: Chờ lâu để tránh flapping (liên tục scale up/down)
+    # Kafka workload thường là burst ngắn → scale down quá nhanh = cold start liên tục
+    scaleDown:
+      # Chờ 5 phút ổn định (CPU < 60%) trước khi giảm pod
+      # 5 phút đủ để xử lý hết một batch 20 chunks × 2s/chunk = 40s processing time
+      # + buffer cho Kafka consumer rebalance (thường < 30s)
+      stabilizationWindowSeconds: 300
+
+      policies:
+        # Giảm tối đa 2 pod mỗi 2 phút → scale down từ từ, không "rơi tự do"
+        - type: Pods
+          value: 2
+          periodSeconds: 120
+
+      # Min: áp dụng policy nào cho kết quả scale DOWN ÍT nhất
+      # → Ưu tiên giữ pod warm hơn là tiết kiệm tài nguyên
+      selectPolicy: Min

@@ -1,0 +1,283 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# kafka-values.yaml — Helm Values cho Bitnami Kafka Chart
+# Đồ án NT533: K3s Serverless Data Pipeline
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# ⚠️  QUAN TRỌNG — PHIÊN BẢN CHART:
+#   File này dùng cú pháp Bitnami Kafka chart >= 26.x (Kafka 3.6+, KRaft mode).
+#   File ~/values.yaml cũ trên VM dùng ZooKeeper (chart <= 22.x) — KHÔNG tương thích.
+#
+#   Kiểm tra version chart đang cài:
+#     helm list -n kafka
+#
+#   Nếu Kafka CHƯA cài → dùng file này (KRaft, không ZooKeeper):
+#     helm install kafka bitnami/kafka --namespace kafka --create-namespace \
+#       --version 26.8.5 -f kafka-values.yaml
+#
+#   Nếu Kafka ĐÃ cài bằng chart cũ (ZooKeeper) → uninstall trước:
+#     helm uninstall kafka -n kafka
+#     kubectl delete pvc --all -n kafka  # xóa PVC cũ nếu có
+#     helm install kafka bitnami/kafka --namespace kafka \
+#       --version 26.8.5 -f kafka-values.yaml
+#
+# Cluster nodes:
+#   k3s-master  : 192.168.125.104
+#   k3s-worker1 : 192.168.125.105
+#   k3s-worker2 : 192.168.125.106
+#
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Cách cài đặt:
+#   # Thêm repo Bitnami (nếu chưa có):
+#   helm repo add bitnami https://charts.bitnami.com/bitnami
+#   helm repo update
+#
+#   # Cài Kafka vào namespace riêng:
+#   helm install kafka bitnami/kafka \
+#     --namespace kafka \
+#     --create-namespace \
+#     -f kafka-values.yaml
+#
+#   # Xác nhận pod đang chạy:
+#   kubectl get pods -n kafka
+#
+#   # Lấy ClusterIP service name để dùng trong Producer:
+#   kubectl get svc -n kafka
+#   # → kafka.kafka.svc.cluster.local:9092
+#
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+# ─── Topology: Combined Controller + Broker (KRaft Mode) ─────────────────────
+#
+# KRaft (Kafka Raft Metadata) = Kafka 3.x không cần ZooKeeper.
+# Metadata (partition leaders, consumer groups, topics) được quản lý bởi
+# một Raft consensus group gồm các Controller nodes.
+#
+# "Combined mode": mỗi pod vừa là Controller VỪA là Broker.
+# → Tiết kiệm tài nguyên K3s cluster cho mục đích đồ án/testing.
+# → KHÔNG phù hợp production vì Controller và Broker chạy chung process.
+
+controller:
+  # Số node "combined" (Controller + Broker). Đặt = 1 để tối đa CPU/RAM
+  # cho workload tính toán, không phân tán tài nguyên cho replication.
+  replicaCount: 1
+
+  # false = node này vừa là Controller VỪA là Broker (combined mode)
+  # true  = node này CHỈ là Controller (tách biệt)
+  controllerOnly: false
+
+  # ── Persistent Volume cho Kafka log segments ────────────────────────────────
+  persistence:
+    enabled: true
+    # [NETWORKING] K3s dùng local-path-provisioner mặc định → PV được tạo
+    # trên node local. Nếu pod reschedule sang node khác, data sẽ mất.
+    # Dùng storageClass của NFS/Longhorn nếu cần data persistence thực sự.
+    storageClass: ""    # "" = dùng default StorageClass của K3s (local-path)
+    size: 5Gi
+
+  # ── JVM Heap Configuration ──────────────────────────────────────────────────
+  # [MEMORY] Rule of thumb cho Kafka JVM heap:
+  #   heapMax ≈ 50% container memory limit
+  #   Container limit = 2Gi → heapMax = 1Gi
+  #   Phần còn lại (1Gi) dành cho OS page cache:
+  #     → Kafka dùng page cache để cache log segments trong RAM
+  #     → Đọc/ghi Kafka nhanh gần bằng RAM khi data fit trong page cache.
+  #   -XX:+UseG1GC: G1 Garbage Collector phù hợp với heap lớn (> 512MB)
+  #   -XX:MaxGCPauseMillis=20: Yêu cầu GC pause < 20ms để giảm latency spike
+  heapOpts: "-Xmx1g -Xms512m -XX:+UseG1GC -XX:MaxGCPauseMillis=20"
+
+  # ── Resource Limits cho Broker Pod ─────────────────────────────────────────
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    # [MEMORY] limits.memory = 2Gi:
+    #   - JVM heap: 1Gi (heapOpts -Xmx1g)
+    #   - OS page cache cho Kafka log: ~1Gi
+    #   - JVM metaspace + overhead: ~100MB
+    #   Tổng: ~2.1Gi → limit 2Gi là mức tối thiểu an toàn.
+    #   Nếu kubelet OOMKill Kafka pod, tăng lên 3Gi hoặc 4Gi.
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+
+
+# ─── Listeners: PLAINTEXT cho mạng nội bộ LAN ─────────────────────────────────
+#
+# [NETWORKING] Kiến trúc mạng của cụm:
+#
+#   ┌───────────────────────────────────────────────────────────────┐
+#   │  LAN Private Network (192.168.125.0/24)                      │
+#   │                                                             │
+#   │  K3s Master (192.168.125.104) ←─────→  Worker 1 (.105)      │
+#   │                               ←─────→  Worker 2 (.106)      │
+#   │                                                             │
+#   │  Traffic chỉ chạy trong LAN nội bộ                           │
+#   │  → KHÔNG cần TLS/SASL trong môi trường lab này.           │
+#   └───────────────────────────────────────────────────────────────┘
+#
+# [SECURITY] CẢNH BÁO:
+#   - PLAINTEXT + no auth = PHÙ HỢP cho lab nội bộ (LAN không có internet).
+#   - KHÔNG BAO GIỜ dùng cấu hình này khi Kafka expose ra internet.
+#   - Production: dùng SASL_SSL với TLS cert và SCRAM-SHA-256.
+
+listeners:
+  client:
+    # [NETWORKING] Clients (Producer/Consumer) kết nối vào port 9092
+    # DNS: kafka.kafka.svc.cluster.local:9092 (trong cluster)
+    protocol: PLAINTEXT
+    name: PLAINTEXT
+    containerPort: 9092
+
+  controller:
+    # [NETWORKING] Internal KRaft controller communication (không expose ra ngoài)
+    protocol: PLAINTEXT
+    name: CONTROLLER
+    containerPort: 9093
+
+  interbroker:
+    # [NETWORKING] Broker-to-broker replication (chỉ trong cluster)
+    # Với 1 broker, port này không có traffic thực nhưng phải khai báo.
+    protocol: PLAINTEXT
+    name: INTERBROKER
+    containerPort: 9094
+
+  # Tắt external listener (không cần expose Kafka ra ngoài cluster)
+  # Nếu cần test từ máy local qua LAN: uncomment và dùng NodePort
+  # external:
+  #   protocol: PLAINTEXT
+  #   containerPort: 9095
+
+
+# ─── Tắt Authentication hoàn toàn ────────────────────────────────────────────
+# [SECURITY] SASL disabled — phù hợp cho môi trường lab nội bộ LAN.
+# Firewall / Network Policy có thể restrict: chỉ các pod trong cluster
+# mới được kết nối tới port 9092 của Kafka node.
+
+sasl:
+  enabledMechanisms: ""       # Không dùng cơ chế SASL nào
+  interBrokerMechanism: ""    # Broker-to-broker cũng không auth
+  client:
+    users: []
+    passwords: ""
+
+
+# ─── Cấu hình Kafka Broker (Extra Properties) ────────────────────────────────
+# Các property được thêm vào server.properties của Kafka broker
+
+extraConfig: |
+  # Cho phép tất cả clients kết nối không cần ACL (tắt authorization)
+  allow.everyone.if.no.acl.found=true
+
+  # [MEMORY] Kích thước tối đa của một message Kafka:
+  # Chunk 50K integers JSON ≈ 400KB raw, ≈ 100KB sau gzip.
+  # Set 15MB để có headroom lớn (tránh MessageSizeTooLargeException).
+  message.max.bytes=15728640
+
+  # [MEMORY] Replica fetch max bytes phải >= message.max.bytes
+  replica.fetch.max.bytes=15728640
+
+  # Giữ message trong topic tối đa 24 giờ (86400 giây)
+  log.retention.hours=24
+
+  # [MEMORY] Log segment size: Kafka tạo segment file mới khi segment đầy.
+  # 512MB = Kafka sẽ có ít file segment → ít file descriptor → ít memory overhead.
+  log.segment.bytes=536870912
+
+  # [MEMORY] Số thread xử lý I/O cho mạng — tăng nếu throughput kém
+  num.network.threads=3
+  num.io.threads=8
+
+  # Auto-create topic khi Producer gửi tới topic chưa tồn tại
+  auto.create.topics.enable=true
+
+  # Số partitions mặc định khi auto-create topic
+  num.partitions=3
+
+  # Replication factor mặc định = 1 (chỉ có 1 broker, không thể > 1)
+  default.replication.factor=1
+  min.insync.replicas=1
+
+  # [NETWORKING] Socket buffer sizes tối ưu cho mạng LAN:
+  # WireGuard MTU = 1420 bytes; tăng socket buffer để amortize overhead
+  socket.send.buffer.bytes=102400
+  socket.receive.buffer.bytes=102400
+  socket.request.max.bytes=104857600
+
+  # Compression codec mặc định cho topic (producer có thể override)
+  compression.type=producer
+
+
+# ─── Auto-provisioning Topics ────────────────────────────────────────────────
+# Tạo sẵn topic UIT khi Kafka khởi động lần đầu.
+# Nếu topic đã tồn tại, provisioning sẽ skip (idempotent).
+
+provisioning:
+  enabled: true
+
+  # Chờ Kafka broker healthy trước khi tạo topic (tránh race condition)
+  waitForKafka: true
+
+  topics:
+    - name: UIT
+      # 3 partitions: cho phép tối đa 3 Consumer (OpenFaaS function instances)
+      # đọc song song cùng một lúc → tối đa throughput khi scale.
+      # [NETWORKING] Kafka phân phối partitions dựa trên key hash của message.
+      # Producer không set key → round-robin → phân đều giữa 3 partitions.
+      partitions: 3
+
+      # replicationFactor = 1: không replicate (chỉ có 1 broker)
+      # KHÔNG thể đặt > số broker đang chạy → Error nếu đặt = 3 với 1 broker.
+      replicationFactor: 1
+
+      config:
+        # Giữ message tối đa 24 giờ (86.400.000 ms)
+        retention.ms: "86400000"
+
+        # Giữ tối đa 5GB data per partition
+        retention.bytes: "5368709120"
+
+        # [MEMORY] Kích thước tối đa mỗi message trong topic này
+        max.message.bytes: "15728640"
+
+        # Cleanup policy: xóa segment cũ khi vượt retention (không compact)
+        cleanup.policy: "delete"
+
+        # Compression: producer tự quyết định (gzip từ chunker_producer.py)
+        compression.type: "producer"
+
+
+# ─── ZooKeeper: Tắt (KRaft mode không cần ZooKeeper) ────────────────────────
+zookeeper:
+  enabled: false
+
+
+# ─── Kubernetes Service ───────────────────────────────────────────────────────
+# [NETWORKING] ClusterIP: Kafka chỉ accessible từ trong K3s cluster.
+# DNS resolution: kafka.kafka.svc.cluster.local (namespace 'kafka')
+#
+# Để test từ bên ngoài cluster qua LAN, thêm NodePort:
+#   kubectl patch svc kafka -n kafka -p '{"spec":{"type":"NodePort","ports":[{"port":9092,"nodePort":30092,"targetPort":9092}]}}'
+# Sau đó kết nối qua bất kỳ node nào:
+#   bootstrap.servers=192.168.125.104:30092  (k3s-master)
+#   bootstrap.servers=192.168.125.105:30092  (k3s-worker1)
+#   bootstrap.servers=192.168.125.106:30092  (k3s-worker2)
+service:
+  type: ClusterIP
+  ports:
+    client: 9092
+    controller: 9093
+    interbroker: 9094
+
+
+# ─── Metrics cho Prometheus/Grafana ──────────────────────────────────────────
+# Bật JMX Exporter để Prometheus scrape Kafka metrics.
+# Grafana dashboard ID 7589 (Kafka Overview) sẵn có trên grafana.com.
+metrics:
+  kafka:
+    enabled: true
+  jmx:
+    enabled: true
+    # Port JMX metrics được expose trong pod
+    containerPort: 5555

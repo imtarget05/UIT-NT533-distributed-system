@@ -1,0 +1,18 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# requirements.txt — Python dependencies cho hàm parallel-sort
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Hàm này CHỈ sử dụng Python Standard Library:
+#   - json            : parse/serialize JSON payload từ Kafka
+#   - os              : đọc NUM_WORKERS từ environment variable
+#   - math            : math.ceil() cho chunk size calculation
+#   - heapq           : heapq.merge() cho k-way merge
+#   - logging         : structured logging trong container
+#   - multiprocessing : quản lý start method (spawn/fork)
+#   - concurrent.futures.ProcessPoolExecutor : parallel worker pool
+#
+# Tất cả đều có sẵn trong python:3.10-slim base image — KHÔNG cần cài thêm.
+#
+# File này để trống (không có package) để faas-cli biết không cần
+# chạy pip install, giảm thời gian build Docker image.
+# ══════════════════════════════════════════════════════════════════════════════

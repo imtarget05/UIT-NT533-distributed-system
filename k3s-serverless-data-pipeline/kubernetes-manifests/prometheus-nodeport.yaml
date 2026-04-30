@@ -1,0 +1,37 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# prometheus-nodeport.yaml — Expose Prometheus on NodePort 30090
+# Đồ án NT533: K3s Serverless Data Pipeline
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Mục đích:
+#   kube-prometheus-stack mặc định chỉ tạo ClusterIP service cho Prometheus.
+#   File này tạo thêm NodePort service để scenario scripts (chạy trên master OS)
+#   có thể query Prometheus qua http://<NodeIP>:30090
+#
+# Cách áp dụng:
+#   kubectl apply -f prometheus-nodeport.yaml
+#
+# Cách xóa:
+#   kubectl delete -f prometheus-nodeport.yaml
+#
+# ══════════════════════════════════════════════════════════════════════════════
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-nodeport
+  namespace: monitoring
+  labels:
+    app: prometheus-nodeport
+    component: prometheus-external
+spec:
+  type: NodePort
+  selector:
+    # Selector khớp với pod Prometheus do kube-prometheus-stack tạo ra
+    app.kubernetes.io/name: prometheus
+    prometheus: monitor-kube-prometheus-st-prometheus
+  ports:
+    - name: web
+      port: 9090
+      targetPort: 9090
+      nodePort: 30090
+      protocol: TCP

@@ -1,0 +1,9 @@
+# Ignore everything in the root directory
+/*
+
+# Except for the target folder and this .gitignore file
+!/k3s-serverless-data-pipeline/
+!/.gitignore
+
+# (Optional) If you also want to keep the final report and architecture docs, uncomment these:
+# !/README.md

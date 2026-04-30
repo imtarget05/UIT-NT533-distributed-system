@@ -1,0 +1,133 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# job-producer.yaml — Kubernetes Job chạy Kafka Chunker Producer
+# Đồ án NT533: K3s Serverless Data Pipeline
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# CÁCH SỬ DỤNG — chạy tuần tự các lệnh sau trên Master node:
+#
+#   BƯỚC 1: Tạo ConfigMap chứa script producer (chạy 1 lần duy nhất):
+#     kubectl create configmap producer-script \
+#       --from-file=chunker_producer.py=chunker_producer.py \
+#       -n kafka --dry-run=client -o yaml | kubectl apply -f -
+#
+#   BƯỚC 2: Chạy Job:
+#     kubectl apply -f job-producer.yaml
+#
+#   BƯỚC 3: Theo dõi log:
+#     kubectl logs -f job/producer-job -n kafka
+#
+#   XÓA JOB sau khi chạy xong (để chạy lại, cần xóa rồi apply lại):
+#     kubectl delete job producer-job -n kafka
+#
+# ─── Kafka Broker (in-cluster) ────────────────────────────────────────────────
+#   Job chạy BÊN TRONG cluster → dùng in-cluster DNS (không cần NodePort).
+#   DNS: kafka.kafka.svc.cluster.local:9092
+#
+# ─── Cluster topology ─────────────────────────────────────────────────────────
+#   k3s-master  : 192.168.125.104
+#   k3s-worker1 : 192.168.125.105
+#   k3s-worker2 : 192.168.125.106
+#
+# ══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: producer-job
+  namespace: kafka
+  labels:
+    app: kafka-producer
+    component: data-ingestion
+spec:
+  # Tự xóa Job và Pod 300s (5 phút) sau khi hoàn thành.
+  # Để tắt auto-cleanup: comment out dòng này.
+  ttlSecondsAfterFinished: 300
+
+  # Không retry — nếu fail thì cần sửa lỗi và chạy lại thủ công.
+  backoffLimit: 0
+
+  template:
+    metadata:
+      labels:
+        app: kafka-producer
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: python-client
+          image: python:3.10-slim
+          imagePullPolicy: IfNotPresent
+
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              pip install --quiet --no-cache-dir kafka-python==2.0.2 && \
+              python3 /scripts/chunker_producer.py \
+                --broker $(KAFKA_BROKER) \
+                --topic $(KAFKA_TOPIC) \
+                --total $(TOTAL_ELEMENTS) \
+                --chunk-size $(CHUNK_SIZE)
+
+          env:
+            # ── Kafka connection (in-cluster CoreDNS) ─────────────────────────
+            - name: KAFKA_BROKER
+              value: "kafka.kafka.svc.cluster.local:9092"
+
+            # ── Producer parameters ───────────────────────────────────────────
+            - name: KAFKA_TOPIC
+              value: "UIT"
+
+            # Tổng số phần tử sinh ra: 1.000.000
+            - name: TOTAL_ELEMENTS
+              value: "1000000"
+
+            # Chunk size: 50.000 phần tử/message (~100KB sau gzip)
+            - name: CHUNK_SIZE
+              value: "50000"
+
+            # Tắt Python output buffering để logs xuất hiện ngay lập tức
+            - name: PYTHONUNBUFFERED
+              value: "1"
+
+          # ── Mount script từ ConfigMap ───────────────────────────────────────
+          volumeMounts:
+            - name: script-vol
+              mountPath: /scripts
+              readOnly: true
+
+          # ── Resource Limits ────────────────────────────────────────────────
+          # [MEMORY] Phân tích bộ nhớ peak:
+          #   - Python interpreter: ~30MB
+          #   - 1M integers in RAM: ~28MB
+          #   - JSON serialization per chunk (50K): ~1.4MB
+          #   - KafkaProducer buffer: 64MB
+          #   - Tổng ước tính: ~130MB
+          #   - Limit 512Mi cấp ~4× headroom → an toàn.
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+      volumes:
+        - name: script-vol
+          configMap:
+            name: producer-script
+            # Chỉ mount file chunker_producer.py, không mount file khác
+            items:
+              - key: chunker_producer.py
+                path: chunker_producer.py
+
+      # Job ưu tiên chạy trên Worker nodes (không chiếm tài nguyên Master)
+      # Nếu cả 2 Worker đều busy, K3s sẽ tự schedule lên node có tài nguyên.
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: node-role.kubernetes.io/master
+                    operator: DoesNotExist

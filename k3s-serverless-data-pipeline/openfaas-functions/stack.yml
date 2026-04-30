@@ -1,0 +1,149 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# stack.yml — OpenFaaS Function Stack Definition
+# Đồ án NT533: K3s Serverless Data Pipeline
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# Cách triển khai (chạy trên k3s-master, cần port-forward gateway trước):
+#   kubectl port-forward svc/gateway -n openfaas 8080:8080 &
+#
+#   1. Đăng nhập OpenFaaS gateway:
+#      PASSWORD=$(kubectl get secret -n openfaas basic-auth -o jsonpath="{.data.basic-auth-password}" | base64 --decode)
+#      echo -n "$PASSWORD" | faas-cli login --gateway http://127.0.0.1:8080 --username admin --password-stdin
+#
+#   2. Pull template python3-http-debian:
+#      faas-cli template store pull python3-http-debian
+#
+#   3. Build image (yêu cầu Docker daemon đang chạy):
+#      faas-cli build -f stack.yml
+#
+#   4. Push lên Docker Hub (docker login target05 trước):
+#      faas-cli push -f stack.yml
+#
+#   5. Deploy lên K3s/OpenFaaS:
+#      faas-cli deploy -f stack.yml
+#
+# ══════════════════════════════════════════════════════════════════════════════
+
+version: 1.0
+
+provider:
+  name: openfaas
+  # [NETWORKING] Gateway URL — CÁCH 1: port-forward (chạy lệnh này trên master trước khi dùng faas-cli):
+  #   kubectl port-forward svc/gateway -n openfaas 8080:8080
+  #   → gateway: http://127.0.0.1:8080
+  #
+  # CÁCH 2 (không cần port-forward): NodePort trên Master node qua LAN:
+  #   Kiểm tra NodePort: kubectl get svc gateway-external -n openfaas
+  #   gateway: http://192.168.125.104:31112
+  #
+  # Topology cluster (LAN):
+  #   k3s-master  (Control Plane) : 192.168.125.104
+  #   k3s-worker1 (Worker Node 1) : 192.168.125.105
+  #   k3s-worker2 (Worker Node 2) : 192.168.125.106
+  gateway: http://127.0.0.1:8080
+
+functions:
+
+  parallel-sort:
+    # ── Template & Image ────────────────────────────────────────────────────────
+    # [BASE IMAGE] python3-http-debian dùng python:3.10-slim-buster (Debian).
+    # Lý do chọn debian thay vì alpine:
+    #   - Alpine dùng musl libc → multiprocessing fork() có thể không ổn định.
+    #   - Debian/Slim dùng glibc → fork()/spawn() hoạt động đúng chuẩn POSIX.
+    #   - Template cần pull trước: faas-cli template store pull python3-http
+    #     sau đó copy Dockerfile từ template/python3-http và sửa FROM thành debian.
+    #   - Hoặc dùng: faas-cli template store pull python3-http-debian
+    lang: python3-http-debian
+    handler: ./parallel-sort
+
+    # Image trên Docker Hub: docker.io/target05/parallel-sort:latest
+    # Build và push trước khi deploy:
+    #   faas-cli build -f stack.yml
+    #   faas-cli push -f stack.yml   (yêu cầu docker login target05)
+    # Hoặc build thủ công:
+    #   cd parallel-sort && docker build -t target05/parallel-sort:latest .
+    #   docker push target05/parallel-sort:latest
+    image: target05/parallel-sort:latest
+
+    # ── Annotations ─────────────────────────────────────────────────────────────
+    annotations:
+
+      # ── Kafka Connector Trigger ──────────────────────────────────────────────
+      # [NETWORKING] kafka-connector (chạy trong namespace openfaas) đọc annotation
+      # 'topic' để biết function nào đăng ký topic nào.
+      # Mỗi Kafka message trên topic 'UIT' → kafka-connector gọi HTTP POST
+      # tới http://gateway.openfaas.svc.cluster.local:8080/function/parallel-sort
+      # với body là raw bytes của Kafka message value (JSON payload của ta).
+      topic: "UIT"
+
+      # ── OpenFaaS Auto-scaling ────────────────────────────────────────────────
+      # Số replica tối thiểu: giữ 1 pod "warm" để tránh cold-start latency
+      # khi message Kafka đầu tiên đến. Nếu muốn scale-to-zero: đặt "0"
+      # nhưng kafka messages sẽ tích tụ trong Kafka trong lúc pod đang khởi động.
+      com.openfaas.scale.min: "1"
+
+      # Số replica tối đa: tương ứng với số partition của topic (3 partitions)
+      # nhân hệ số dự phòng. Không vượt quá tài nguyên của 2 Worker nodes.
+      com.openfaas.scale.max: "10"
+
+      # Scale factor: OpenFaaS tăng thêm 20% số replica hiện tại mỗi scaling event.
+      # Ví dụ: 1 pod → 1 + ceil(1×20%) = 2 pods → 2 + ceil(2×20%) = 3 pods...
+      # Giá trị cao → scale nhanh hơn nhưng có thể over-provision.
+      com.openfaas.scale.factor: "20"
+
+      # Thời gian function phải idle (0 RPS) trước khi scale-to-zero (nếu bật)
+      # 5 phút đủ để xử lý hết backlog Kafka trước khi pod bị terminate
+      com.openfaas.scale.zero.duration: "5m"
+
+    # ── Labels ──────────────────────────────────────────────────────────────────
+    labels:
+      app: parallel-sort
+      version: "0.1.0"
+      component: sort-worker
+      # Label dùng cho Prometheus ServiceMonitor (nếu cần)
+      monitoring: "true"
+
+    # ── Environment Variables ────────────────────────────────────────────────────
+    environment:
+      # [MULTI-PROCESSING] Với limits.cpu=500m (0.5 vCPU), MAX_DEPTH=1 cho phép
+      # tối đa 2^1=2 processes song song — phù hợp với tài nguyên được cấp.
+      # Tăng MAX_DEPTH=2 nếu limits.cpu >= 1000m (2^2=4 processes).
+      MAX_DEPTH: "1"
+
+      # Ngưỡng tối thiểu để kích hoạt parallel sort.
+      # Với chunk 50K phần tử >> ngưỡng 10000 → luôn dùng parallel mode.
+      PARALLEL_THRESHOLD: "10000"
+
+      # [TIMEOUT] Xử lý 50K phần tử parallel sort: ~2-5s.
+      # Đặt 120s để có headroom lớn tránh timeout khi pod cold-start.
+      read_timeout: "120s"
+      write_timeout: "120s"
+      exec_timeout: "120s"
+
+      # Bật debug logging trong OpenFaaS watchdog
+      write_debug: "true"
+
+      # Tắt output buffering của Python
+      PYTHONUNBUFFERED: "1"
+
+    # ── Resource Limits ──────────────────────────────────────────────────────────
+    # [MEMORY] Phân tích bộ nhớ peak của function khi xử lý 1 chunk 50K phần tử:
+    #   - Python interpreter + OpenFaaS watchdog   : ~80 MB
+    #   - Input JSON deserialized (50K × 28B)      : ~1.4 MB
+    #   - ProcessPoolExecutor spawn 2 workers       : ~2 × 80MB = ~160 MB overhead
+    #   - Mỗi worker: sorted copy của sub-chunk    : 2 × ~0.7MB = ~1.4 MB
+    #   - k-way merge heap (3 elements max)         : ~negligible
+    #   - Output JSON serialization                : ~1.4 MB
+    #   ─────────────────────────────────────────────────────────────────────────
+    #   Tổng ước tính peak                         : ~245 MB
+    #   Limit 1Gi cấp ~4× headroom → an toàn với OOM Kill của kubelet.
+    limits:
+      memory: "1Gi"
+      cpu: "500m"    # 0.5 vCPU — tương thích với parallel-sort.yml trên VM
+
+    # requests: Kubernetes scheduler dùng để tìm node đủ tài nguyên để đặt pod.
+    # requests.cpu = 100m (0.1 vCPU): mức thấp để nhiều replica có thể schedule
+    # trên cùng 1 worker node khi auto-scale (tối đa 10 replicas).
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
