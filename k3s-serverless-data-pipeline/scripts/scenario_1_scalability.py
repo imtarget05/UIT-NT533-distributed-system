@@ -72,7 +72,9 @@ MASTER_LAN  = "192.168.125.104"
 WORKER1_LAN = "192.168.125.105"
 WORKER2_LAN = "192.168.125.106"
 
-# Kafka Service — use NodePort (tests run on master OS, not inside cluster)
+# Kafka Service — NodePort 30092 (chạy từ master OS qua Tailscale/LAN)
+# Yêu cầu: Kafka phải được cấu hình advertised.listeners với EXTERNAL listener
+# trỏ về NODE_IP:30092 để metadata trả đúng địa chỉ external.
 DEFAULT_BROKER = f"{MASTER_IP}:30092"
 
 # Prometheus NodePort — mặc định K3s kube-prometheus-stack dùng port 30090
@@ -86,7 +88,7 @@ TOPIC = "UIT"
 CHUNK_SIZE = 50_000
 
 # Các phase tải: số lượng chunks gửi mỗi phase
-LOAD_PHASES = [1, 5, 10, 15, 20]
+LOAD_PHASES = [10, 50, 100, 150, 200]
 
 # Thời gian chờ sau mỗi phase để HPA có thời gian scale (giây)
 STABILIZATION_WAIT_S = 60
@@ -175,7 +177,7 @@ def get_openfaas_rps(gateway_url: str) -> float | None:
     try:
         resp = requests.get(
             f"{gateway_url}/system/functions",
-            auth=("admin", "admin"),     # Thay bằng OpenFaaS password thực tế
+            auth=("admin", "TJjkh4ni8KXVAUL1cqnIU1FRaalmG1tS"),  # OpenFaaS basic-auth password
             timeout=5,
         )
         if resp.status_code == 200:
@@ -197,6 +199,54 @@ def collect_metrics(prometheus_url: str, gateway_url: str) -> dict:
         "cpu_worker2_%":   get_node_cpu_usage(prometheus_url, WORKER2_LAN),
         "fn_invocations":  get_openfaas_rps(gateway_url),
     }
+
+
+def reset_to_min_pods(namespace: str = "openfaas-fn", target_replicas: int = 1,
+                      wait_stable_s: int = 30, timeout_s: int = 120) -> bool:
+    """
+    Scale deployment parallel-sort xuống target_replicas trước khi test.
+    Mục đích: đảm bảo HPA có thể chứng minh scale-OUT từ min→max pods.
+
+    Nếu không reset, HPA có thể đã ở trạng thái 5 pods (do workload trước đó)
+    và CPU/memory không bao giờ đủ cao để trigger scale thêm.
+
+    Returns: True nếu thành công, False nếu lỗi (test vẫn tiếp tục).
+    """
+    logger.info(f"\n[PRE-TEST RESET] Scale parallel-sort → {target_replicas} pod để chứng minh scale-OUT...")
+    try:
+        # 1. Scale xuống target_replicas
+        result = subprocess.run(
+            ["kubectl", "scale", "deployment", "parallel-sort",
+             "-n", namespace, f"--replicas={target_replicas}"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if result.returncode != 0:
+            logger.warning(f"  kubectl scale lỗi: {result.stderr.strip()}")
+            return False
+        logger.info(f"  ✓ kubectl scale → {target_replicas} replica(s) thành công")
+
+        # 2. Chờ pod count ổn định
+        logger.info(f"  Đợi pod count về {target_replicas} (timeout={timeout_s}s)...")
+        deadline = time.time() + timeout_s
+        while time.time() < deadline:
+            count = get_pod_count(namespace)
+            logger.info(f"    Hiện tại: {count} pod(s) running...")
+            if count == target_replicas:
+                logger.info(f"  ✓ Pod count đạt {target_replicas}")
+                break
+            time.sleep(5)
+        else:
+            logger.warning(f"  ⚠ Timeout: pod count chưa về {target_replicas} sau {timeout_s}s — tiếp tục dù sao")
+
+        # 3. Đợi thêm để Prometheus metrics và HPA ổn định
+        logger.info(f"  Đợi thêm {wait_stable_s}s cho metrics ổn định...")
+        time.sleep(wait_stable_s)
+        logger.info("  [PRE-TEST RESET HOÀN THÀNH]\n")
+        return True
+
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        logger.warning(f"  kubectl không khả dụng: {exc}")
+        return False
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -266,6 +316,12 @@ def main() -> None:
     producer = create_producer(args.broker)
     all_results = []
     chunk_id_offset = 0
+
+    # ── Pre-test reset: về 1 pod để HPA có thể chứng minh scale-OUT ────────────
+    # Lý do: HPA có thể đang ở trạng thái N pods từ workload trước.
+    # Nếu memory 66%/75% at idle → HPA giữ replicas hiện tại → không scale-out.
+    # Reset về 1 pod → dưới tải, CPU pod đơn vượt 60% → HPA scale 1→N.
+    reset_to_min_pods(target_replicas=1, wait_stable_s=30, timeout_s=120)
 
     # ── Baseline: thu metrics trước khi gửi bất kỳ tải nào ────────────────────
     logger.info("\n[BASELINE] Thu metrics trước khi gửi tải...")

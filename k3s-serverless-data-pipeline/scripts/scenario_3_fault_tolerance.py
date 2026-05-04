@@ -76,7 +76,7 @@ WORKER2_IP = "100.108.56.79"    # k3s-worker2 â€” Worker Node 2 (Tailscale) [sáº
 
 WORKER2_HOSTNAME = "k3s-worker2"
 
-DEFAULT_BROKER     = "100.107.243.97:30092"   # Kafka NodePort (tests run on master OS)
+DEFAULT_BROKER     = "100.107.243.97:30092"   # Kafka NodePort (master Tailscale IP)
 DEFAULT_PROMETHEUS = f"http://{MASTER_IP}:30090"
 DEFAULT_SSH_USER   = "master"
 DEFAULT_SSH_PORT   = 22

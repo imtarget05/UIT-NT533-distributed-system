@@ -56,67 +56,55 @@ spec:
   # ── Metrics để quyết định scale ─────────────────────────────────────────────
   metrics:
 
-    # Scale OUT khi CPU trung bình của tất cả pod vượt 60%
-    # Lý do chọn 60%: Parallel Quicksort là CPU-bound (100% một core khi sort).
-    # Giữ headroom 40% để tránh throttling khi có spike traffic đột ngột.
-    # Ví dụ: 1 pod đang dùng 60% CPU → scale lên 2 pod → mỗi pod ~30% CPU.
+    # Scale OUT khi CPU trung bình mỗi pod vượt 200m (millicores) — absolute value.
+    # Dùng AverageValue thay vì Utilization vì requests.cpu=10m quá thấp.
+    # - Idle pods: ~2-5m CPU → well below 200m → scale down về 1
+    # - Processing pods: ~400-600m CPU → trên 200m → scale out
+    # Threshold 200m = 20% của limits.cpu (1000m) → hợp lý và dễ demo.
     - type: Resource
       resource:
         name: cpu
         target:
-          type: Utilization
-          averageUtilization: 60    # % của requests.cpu (200m × 60% = 120m)
+          type: AverageValue
+          averageValue: 200m        # 200 millicores per pod absolute threshold
 
-    # Scale OUT khi Memory trung bình vượt 75%
-    # [MEMORY] 75% của requests.memory = 75% × 256Mi = 192Mi.
-    # Peak memory khi sort 50K int với 2 workers: ~245MB > 256Mi requests
-    # → HPA sẽ trigger scale khi có nhiều concurrent invocations.
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 75    # % của requests.memory (256Mi × 75% = 192Mi)
+    # NOTE: Memory metric đã bị loại bỏ khỏi HPA để tránh conflict.
+    # Vấn đề: pods dùng ~170Mi/256Mi request = 66% ngay cả khi idle.
+    # Memory threshold 75% hoặc 90% đều bị vượt → HPA giữ nhiều pods liên tục,
+    # không bao giờ scale về minReplicas để demo scale-out.
+    # Chỉ dùng CPU metric để scale → sạch, dễ demo, không bị memory kéo.
 
   # ── Scaling Behavior ─────────────────────────────────────────────────────────
   behavior:
 
     # Scale UP: Phản ứng nhanh khi có workload spike từ Kafka backlog
     scaleUp:
-      # Chờ 30 giây để đảm bảo spike là thực (không phải noise 1-2 messages)
-      # Giá trị nhỏ hơn → scale nhanh hơn nhưng có thể over-provision.
-      stabilizationWindowSeconds: 30
+      # Giảm xuống 0s để scale-out ngay lập tức khi CPU vượt 20%
+      # Phù hợp cho demo: thấy pod count tăng nhanh sau khi gửi chunks.
+      stabilizationWindowSeconds: 0
 
       policies:
-        # Policy 1: Tăng tối đa 4 pod mỗi 60 giây (tránh scale quá nhanh)
+        # Tăng tối đa 4 pod mỗi 15 giây → scale nhanh cho demo
         - type: Pods
           value: 4
-          periodSeconds: 60
+          periodSeconds: 15
 
-        # Policy 2: Tăng tối đa 100% số pod hiện tại mỗi 60 giây (gấp đôi)
-        # Ví dụ: 2 pods → tăng thêm 2 = 4 pods (nếu policy này mạnh hơn)
+        # Tăng tối đa 100% số pod hiện tại mỗi 15 giây (gấp đôi)
         - type: Percent
           value: 100
-          periodSeconds: 60
+          periodSeconds: 15
 
       # Max: áp dụng policy nào cho kết quả scale UP nhiều nhất
-      # → Đảm bảo phản ứng nhanh nhất có thể với Kafka backlog
       selectPolicy: Max
 
-    # Scale DOWN: Chờ lâu để tránh flapping (liên tục scale up/down)
-    # Kafka workload thường là burst ngắn → scale down quá nhanh = cold start liên tục
+    # Scale DOWN: Chờ 2 phút trước khi giảm pod (tránh flapping trong demo)
     scaleDown:
-      # Chờ 5 phút ổn định (CPU < 60%) trước khi giảm pod
-      # 5 phút đủ để xử lý hết một batch 20 chunks × 2s/chunk = 40s processing time
-      # + buffer cho Kafka consumer rebalance (thường < 30s)
-      stabilizationWindowSeconds: 300
+      stabilizationWindowSeconds: 120
 
       policies:
-        # Giảm tối đa 2 pod mỗi 2 phút → scale down từ từ, không "rơi tự do"
+        # Giảm tối đa 2 pod mỗi 60 giây → scale down từ từ
         - type: Pods
           value: 2
-          periodSeconds: 120
+          periodSeconds: 60
 
-      # Min: áp dụng policy nào cho kết quả scale DOWN ÍT nhất
-      # → Ưu tiên giữ pod warm hơn là tiết kiệm tài nguyên
       selectPolicy: Min

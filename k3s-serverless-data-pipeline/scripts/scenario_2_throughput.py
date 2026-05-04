@@ -67,7 +67,7 @@ MASTER_IP  = "100.107.243.97"   # k3s-master  (Tailscale)
 WORKER1_IP = "100.69.61.128"    # k3s-worker1 (Tailscale)
 WORKER2_IP = "100.108.56.79"    # k3s-worker2 (Tailscale)
 
-DEFAULT_BROKER     = "100.107.243.97:30092"   # Kafka NodePort (tests run on master OS)
+DEFAULT_BROKER     = "100.107.243.97:30092"   # Kafka NodePort (master Tailscale IP)
 DEFAULT_PROMETHEUS = f"http://{MASTER_IP}:30090"
 
 TOPIC         = "UIT"
@@ -425,7 +425,7 @@ def main() -> None:
     # ── 6. Kết luận ──────────────────────────────────────────────────────────
     logger.info("\n  KỊCH BẢN 2 HOÀN THÀNH")
     logger.info("  Bước tiếp theo: Grafana dashboard → container memory RSS graph")
-    logger.info(f"  Grafana URL: http://{MASTER_IP}:30030 (mặc định)")
+    logger.info(f"  Grafana URL: http://{MASTER_IP}:31234 (mặc định)")
     logger.info("  Dashboard: 'Kubernetes / Compute Resources / Pod' → filter parallel-sort")
 
     producer.close()

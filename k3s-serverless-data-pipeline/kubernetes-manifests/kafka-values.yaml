@@ -143,11 +143,15 @@ listeners:
     name: INTERBROKER
     containerPort: 9094
 
-  # Tắt external listener (không cần expose Kafka ra ngoài cluster)
-  # Nếu cần test từ máy local qua LAN: uncomment và dùng NodePort
-  # external:
-  #   protocol: PLAINTEXT
-  #   containerPort: 9095
+  # [NETWORKING] EXTERNAL listener — cho phép client từ ngoài cluster kết nối
+  # qua NodePort. Kafka sẽ advertise NODE_IP:30092 trong metadata response,
+  # giúp client nhận được địa chỉ routable thay vì internal DNS.
+  # Nếu không có listener này, client kết nối NodePort sẽ nhận metadata
+  # chứa my-kafka-controller-0...svc.cluster.local:9092 → EHOSTUNREACH.
+  external:
+    protocol: PLAINTEXT
+    name: EXTERNAL
+    containerPort: 9095
 
 
 # ─── Tắt Authentication hoàn toàn ────────────────────────────────────────────
@@ -253,22 +257,34 @@ zookeeper:
   enabled: false
 
 
-# ─── Kubernetes Service ───────────────────────────────────────────────────────
-# [NETWORKING] ClusterIP: Kafka chỉ accessible từ trong K3s cluster.
-# DNS resolution: kafka.kafka.svc.cluster.local (namespace 'kafka')
+# ─── External Access — cho phép kết nối từ ngoài cluster qua NodePort ────────
+# [NETWORKING] Khi client kết nối qua NodePort, Kafka cần advertise
+# đúng NODE_IP:NodePort thay vì internal DNS (svc.cluster.local).
+# Nếu không bật external access, client sẽ nhận metadata chứa
+# my-kafka-controller-0...svc.cluster.local:9092 → EHOSTUNREACH.
 #
-# Để test từ bên ngoài cluster qua LAN, thêm NodePort:
-#   kubectl patch svc kafka -n kafka -p '{"spec":{"type":"NodePort","ports":[{"port":9092,"nodePort":30092,"targetPort":9092}]}}'
-# Sau đó kết nối qua bất kỳ node nào:
+# Client kết nối qua bất kỳ node nào:
 #   bootstrap.servers=192.168.125.104:30092  (k3s-master)
 #   bootstrap.servers=192.168.125.105:30092  (k3s-worker1)
 #   bootstrap.servers=192.168.125.106:30092  (k3s-worker2)
+externalAccess:
+  enabled: true
+  controller:
+    service:
+      type: NodePort
+      nodePorts:
+        - 30092
+  autoDiscovery:
+    enabled: false
+
+# ─── Kubernetes Service ───────────────────────────────────────────────────────
 service:
   type: ClusterIP
   ports:
     client: 9092
     controller: 9093
     interbroker: 9094
+    external: 9095
 
 
 # ─── Metrics cho Prometheus/Grafana ──────────────────────────────────────────
