@@ -1,0 +1,88 @@
+05:42:44 [INFO] ══════════════════════════════════════════════════════════════════════
+05:42:44 [INFO]   Kịch bản 2: Throughput & Chunking Test
+05:42:44 [INFO]   Broker     : 100.107.243.97:30092
+05:42:44 [INFO]   Prometheus : http://100.107.243.97:30090
+05:42:44 [INFO]   Tổng phần tử : 1,000,000
+05:42:44 [INFO]   Chunk size   : 50,000 phần tử (~400KB JSON, ~100KB gzip)
+05:42:44 [INFO]   Tổng chunks  : 20
+05:42:44 [INFO]   OOM threshold: 500MiB
+05:42:44 [INFO] ══════════════════════════════════════════════════════════════════════
+05:42:44 [INFO] 
+Sinh 1,000,000 số nguyên ngẫu nhiên...
+05:42:44 [INFO] ✓ Đã sinh xong trong 0.12s
+05:42:44 [INFO] Bắt đầu monitor metrics (interval=5s)...
+05:42:44 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=bootstrap-0 host=100.107.243.97:30092 <connecting> [IPv4 ('100.107.243.97', 30092)]>: connecting to 100.107.243.97:30092 [('100.107.243.97', 30092) IPv4]
+05:42:44 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=bootstrap-0 host=100.107.243.97:30092 <checking_api_versions_recv> [IPv4 ('100.107.243.97', 30092)]>: Broker version identified as 2.6
+05:42:44 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=bootstrap-0 host=100.107.243.97:30092 <connected> [IPv4 ('100.107.243.97', 30092)]>: Connection complete.
+05:42:44 [INFO] 
+Bắt đầu gửi 20 chunks vào Kafka...
+05:42:44 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=100 host=192.168.125.105:30092 <connecting> [IPv4 ('192.168.125.105', 30092)]>: connecting to 192.168.125.105:30092 [('192.168.125.105', 30092) IPv4]
+05:42:44 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=100 host=192.168.125.105:30092 <connected> [IPv4 ('192.168.125.105', 30092)]>: Connection complete.
+05:42:44 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=bootstrap-0 host=100.107.243.97:30092 <connected> [IPv4 ('100.107.243.97', 30092)]>: Closing connection. 
+05:42:44 [INFO]   [ 1/20] send=183ms | partition=0 | offset=5171
+05:42:44 [INFO]   [ 2/20] send=72ms | partition=0 | offset=5172
+05:42:44 [INFO]   [ 3/20] send=68ms | partition=0 | offset=5173
+05:42:44 [INFO]   [ 4/20] send=72ms | partition=0 | offset=5174
+05:42:44 [INFO]   [ 5/20] send=77ms | partition=0 | offset=5175
+05:42:44 [INFO]   [ 6/20] send=74ms | partition=0 | offset=5176
+05:42:44 [INFO]   [ 7/20] send=74ms | partition=0 | offset=5177
+05:42:44 [INFO]   [ 8/20] send=70ms | partition=0 | offset=5178
+05:42:45 [INFO]   [ 9/20] send=71ms | partition=0 | offset=5179
+05:42:45 [INFO]   [10/20] send=69ms | partition=0 | offset=5180
+05:42:45 [INFO]   [11/20] send=63ms | partition=0 | offset=5181
+05:42:45 [INFO]   [12/20] send=64ms | partition=0 | offset=5182
+05:42:45 [INFO]   [13/20] send=83ms | partition=0 | offset=5183
+05:42:45 [INFO]   [14/20] send=65ms | partition=0 | offset=5184
+05:42:45 [INFO]   [15/20] send=64ms | partition=0 | offset=5185
+05:42:45 [INFO]   [16/20] send=65ms | partition=0 | offset=5186
+05:42:45 [INFO]   [17/20] send=65ms | partition=0 | offset=5187
+05:42:45 [INFO]   [18/20] send=62ms | partition=0 | offset=5188
+05:42:45 [INFO]   [19/20] send=62ms | partition=0 | offset=5189
+05:42:45 [INFO]   [20/20] send=68ms | partition=0 | offset=5190
+05:42:45 [INFO] 
+Đợi 30s để function xử lý tất cả 20 chunks...
+05:43:15 [INFO] Dừng monitor metrics.
+05:43:15 [INFO] 
+══════════════════════════════════════════════════════════════════════
+05:43:15 [INFO]   KẾT QUẢ — Kịch bản 2: Throughput & Chunking
+05:43:15 [INFO] ══════════════════════════════════════════════════════════════════════
+05:43:15 [INFO]   Tổng phần tử gửi  : 1,000,000
+05:43:15 [INFO]   Tổng thời gian gửi: 1.50s
+05:43:15 [INFO]   Throughput gửi    : 664,521 phần tử/giây
+05:43:15 [INFO]   Send time/chunk   : avg=75ms | min=62ms | max=183ms
+05:43:15 [INFO]   Partition dist    : {0: 20} (phân bổ round-robin)
+05:43:15 [INFO] 
+  [MEMORY CHECK]
+05:43:15 [INFO]   Peak memory Pod  : 26.4 MiB
+05:43:15 [INFO]   ✓ PASS: Peak memory 26.4MiB < 500MiB OOM threshold
+05:43:15 [INFO]   ✓ PASS: Không có container nào bị OOMKilled (Exit code 137 không xảy ra)
+05:43:15 [INFO] 
+  KỊCH BẢN 2 HOÀN THÀNH
+05:43:15 [INFO]   Bước tiếp theo: Grafana dashboard → container memory RSS graph
+05:43:15 [INFO]   Grafana URL: http://100.107.243.97:31234 (mặc định)
+05:43:15 [INFO]   Dashboard: 'Kubernetes / Compute Resources / Pod' → filter parallel-sort
+05:43:15 [INFO] <KafkaProducer client_id=kafka-python-producer-1 transactional_id=None>: Closing the Kafka producer with 9223372036.0 secs timeout.
+05:43:15 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=100 host=192.168.125.105:30092 <connected> [IPv4 ('192.168.125.105', 30092)]>: Closing connection. 
+
+  chunk_id    size    send_ms    partition    offset
+----------  ------  ---------  -----------  --------
+         0   50000      183.2            0      5171
+         1   50000       72              0      5172
+         2   50000       68.1            0      5173
+         3   50000       72.5            0      5174
+         4   50000       76.7            0      5175
+         5   50000       74              0      5176
+         6   50000       73.5            0      5177
+         7   50000       70              0      5178
+         8   50000       70.6            0      5179
+         9   50000       69.1            0      5180
+        10   50000       62.8            0      5181
+        11   50000       64.4            0      5182
+        12   50000       82.6            0      5183
+        13   50000       65.2            0      5184
+        14   50000       64              0      5185
+        15   50000       65.3            0      5186
+        16   50000       65.1            0      5187
+        17   50000       62.4            0      5188
+        18   50000       62.3            0      5189
+        19   50000       67.5            0      5190

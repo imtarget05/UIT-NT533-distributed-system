@@ -1,0 +1,117 @@
+[05:36:43] ================================================================
+[05:36:43] DEMO SESSION START: 20260504_053643
+[05:36:43] ================================================================
+[05:36:43] --- Initial cluster state ---
+[05:36:43] >>> kubectl get nodes -o wide
+NAME          STATUS   ROLES           AGE     VERSION        INTERNAL-IP       EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+k3s-master    Ready    control-plane   7d18h   v1.34.6+k3s1   192.168.125.104   <none>        Ubuntu 22.04.5 LTS   6.8.0-110-generic   containerd://2.2.2-bd1.34
+k3s-worker1   Ready    <none>          7d18h   v1.34.6+k3s1   192.168.125.105   <none>        Ubuntu 22.04.5 LTS   6.8.0-110-generic   containerd://2.2.2-bd1.34
+k3s-worker2   Ready    <none>          7d18h   v1.34.6+k3s1   192.168.125.106   <none>        Ubuntu 22.04.5 LTS   6.8.0-110-generic   containerd://2.2.2-bd1.34
+[05:36:43] >>> kubectl get pods -n openfaas-fn -o wide
+NAME                             READY   STATUS    RESTARTS        AGE     IP            NODE          NOMINATED NODE   READINESS GATES
+figlet-77468c49bb-htbq6          1/1     Running   5 (4m12s ago)   3d21h   10.42.0.201   k3s-master    <none>           <none>
+parallel-sort-6bff5bf764-29v2j   1/1     Running   1 (3m51s ago)   7h48m   10.42.1.187   k3s-worker1   <none>           <none>
+[05:36:44] >>> kubectl get hpa parallel-sort-hpa -n openfaas-fn
+NAME                REFERENCE                  TARGETS        MINPODS   MAXPODS   REPLICAS   AGE
+parallel-sort-hpa   Deployment/parallel-sort   cpu: 1m/200m   1         10        1          8h
+[05:36:44] >>> kubectl exec -n kafka my-kafka-broker-0 -- kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --group faas-kafka-queue-worker 2>/dev/null
+
+GROUP                   TOPIC           PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+faas-kafka-queue-worker UIT             0          3991            4661            670             -               -               -
+[05:36:49] --- [PREP] Uncordon worker2 ---
+node/k3s-worker2 already uncordoned
+[05:36:49] --- [PREP] Reset HPA: minReplicas=1 maxReplicas=10 ---
+horizontalpodautoscaler.autoscaling/parallel-sort-hpa patched (no change)
+[05:36:49] --- [PREP] Reset Kafka offset to latest ---
+Defaulted container "kafka" out of: kafka, prepare-config (init)
+
+GROUP                          TOPIC                          PARTITION  NEW-OFFSET     
+faas-kafka-queue-worker        UIT                            0          4661           
+[05:36:54] --- [PREP] Wait 15s for system to stabilize ---
+[05:37:09] >>> kubectl get hpa parallel-sort-hpa -n openfaas-fn
+NAME                REFERENCE                  TARGETS        MINPODS   MAXPODS   REPLICAS   AGE
+parallel-sort-hpa   Deployment/parallel-sort   cpu: 1m/200m   1         10        1          8h
+[05:37:09] >>> kubectl get pods -n openfaas-fn -o wide
+NAME                             READY   STATUS    RESTARTS        AGE     IP            NODE          NOMINATED NODE   READINESS GATES
+figlet-77468c49bb-htbq6          1/1     Running   5 (4m39s ago)   3d21h   10.42.0.201   k3s-master    <none>           <none>
+parallel-sort-6bff5bf764-29v2j   1/1     Running   1 (4m18s ago)   7h48m   10.42.1.187   k3s-worker1   <none>           <none>
+[05:37:10] ================================================================
+[05:37:10] SCENARIO 1: SCALABILITY ??? HPA scale-out 1???N pods
+[05:37:10] ================================================================
+[05:37:10] >>> kubectl get hpa parallel-sort-hpa -n openfaas-fn
+NAME                REFERENCE                  TARGETS        MINPODS   MAXPODS   REPLICAS   AGE
+parallel-sort-hpa   Deployment/parallel-sort   cpu: 1m/200m   1         10        1          8h
+[05:37:10] >>> kubectl get pods -n openfaas-fn | grep parallel-sort
+parallel-sort-6bff5bf764-29v2j   1/1     Running   1 (4m18s ago)   7h48m
+[05:37:10] >>> python3 scenario_1_scalability.py
+[05:42:43] --- Scenario 1 finished. Exit code: 0 ---
+[05:42:43] >>> kubectl get hpa parallel-sort-hpa -n openfaas-fn
+NAME                REFERENCE                  TARGETS        MINPODS   MAXPODS   REPLICAS   AGE
+parallel-sort-hpa   Deployment/parallel-sort   cpu: 1m/200m   1         10        1          8h
+[05:42:43] >>> kubectl get pods -n openfaas-fn -o wide | grep parallel-sort
+parallel-sort-6bff5bf764-29v2j   1/1     Running   1 (9m51s ago)   7h54m   10.42.1.187   k3s-worker1   <none>           <none>
+[05:42:43] ================================================================
+[05:42:43] SCENARIO 2: THROUGHPUT ??? 1 tri???u ph???n t???, ??o elem/s + memory
+[05:42:43] ================================================================
+[05:42:43] >>> python3 scenario_2_throughput.py
+[05:43:15] --- Scenario 2 finished. Exit code: 0 ---
+[05:43:15] ================================================================
+[05:43:15] SCENARIO 3 PREP: ?????m b???o pods tr??n C??? HAI worker
+[05:43:15] ================================================================
+node/k3s-worker2 already uncordoned
+[05:43:15] --- Scale HPA to exactly 2 replicas ---
+horizontalpodautoscaler.autoscaling/parallel-sort-hpa patched
+[05:43:16] --- Wait 30s for pods to be placed ---
+[05:43:46] >>> kubectl get pods -n openfaas-fn -o wide | grep parallel-sort
+parallel-sort-6bff5bf764-29v2j   1/1     Running   1 (10m ago)   7h55m   10.42.1.187   k3s-worker1   <none>           <none>
+parallel-sort-6bff5bf764-kqlwk   1/1     Running   0             19s     10.42.3.155   k3s-worker2   <none>           <none>
+[05:43:47] Pod distribution check: Worker1=1 pod(s), Worker2=1 pod(s)
+[05:43:47] ================================================================
+[05:43:47] SCENARIO 3: FAULT TOLERANCE ??? drain worker2, ??o RTO
+[05:43:47] ================================================================
+[05:43:47] >>> kubectl get nodes
+NAME          STATUS   ROLES           AGE     VERSION
+k3s-master    Ready    control-plane   7d18h   v1.34.6+k3s1
+k3s-worker1   Ready    <none>          7d18h   v1.34.6+k3s1
+k3s-worker2   Ready    <none>          7d18h   v1.34.6+k3s1
+[05:43:47] >>> kubectl get pods -n openfaas-fn -o wide | grep parallel-sort
+parallel-sort-6bff5bf764-29v2j   1/1     Running   1 (10m ago)   7h55m   10.42.1.187   k3s-worker1   <none>           <none>
+parallel-sort-6bff5bf764-kqlwk   1/1     Running   0             20s     10.42.3.155   k3s-worker2   <none>           <none>
+[05:43:47] >>> python3 scenario_3_fault_tolerance.py --drain-mode
+[05:45:05] --- Scenario 3 finished. Exit code: 0 ---
+[05:45:05] ================================================================
+[05:45:05] RESTORE: Uncordon worker2, reset HPA min=1 max=10
+[05:45:05] ================================================================
+node/k3s-worker2 already uncordoned
+horizontalpodautoscaler.autoscaling/parallel-sort-hpa patched
+[05:45:10] ================================================================
+[05:45:10] FINAL VERIFICATION
+[05:45:10] ================================================================
+=== Timestamp: Mon May  4 05:45:10 AM EDT 2026 ===
+
+=== kubectl get nodes -o wide ===
+NAME          STATUS   ROLES           AGE     VERSION        INTERNAL-IP       EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+k3s-master    Ready    control-plane   7d18h   v1.34.6+k3s1   192.168.125.104   <none>        Ubuntu 22.04.5 LTS   6.8.0-110-generic   containerd://2.2.2-bd1.34
+k3s-worker1   Ready    <none>          7d18h   v1.34.6+k3s1   192.168.125.105   <none>        Ubuntu 22.04.5 LTS   6.8.0-110-generic   containerd://2.2.2-bd1.34
+k3s-worker2   Ready    <none>          7d18h   v1.34.6+k3s1   192.168.125.106   <none>        Ubuntu 22.04.5 LTS   6.8.0-110-generic   containerd://2.2.2-bd1.34
+
+=== kubectl get hpa parallel-sort-hpa -n openfaas-fn ===
+NAME                REFERENCE                  TARGETS        MINPODS   MAXPODS   REPLICAS   AGE
+parallel-sort-hpa   Deployment/parallel-sort   cpu: 1m/200m   1         10        2          8h
+
+=== kubectl get pods -n openfaas-fn -o wide ===
+NAME                             READY   STATUS    RESTARTS      AGE     IP            NODE          NOMINATED NODE   READINESS GATES
+figlet-77468c49bb-htbq6          1/1     Running   5 (12m ago)   3d21h   10.42.0.201   k3s-master    <none>           <none>
+parallel-sort-6bff5bf764-29v2j   1/1     Running   1 (12m ago)   7h56m   10.42.1.187   k3s-worker1   <none>           <none>
+parallel-sort-6bff5bf764-2ddsf   1/1     Running   0             66s     10.42.0.209   k3s-master    <none>           <none>
+
+=== Kafka consumer lag ===
+
+Error: Executing consumer group command failed due to org.apache.kafka.common.errors.TimeoutException: Call(callName=describeConsumerGroups(api=FIND_COORDINATOR), deadlineMs=1777887919925, tries=1374, nextAllowedTryMs=1777887920753) timed out at 1777887919934 after 1374 attempt(s)
+[05:45:20] ================================================================
+[05:45:20] DEMO COMPLETE
+[05:45:20]   Scenario 1 (Scalability)    exit=0
+[05:45:20]   Scenario 2 (Throughput)     exit=0
+[05:45:20]   Scenario 3 (Fault Tolerance) exit=0
+[05:45:20]   Log directory: /home/master/demo_logs_20260504_053643
+[05:45:20] ================================================================
