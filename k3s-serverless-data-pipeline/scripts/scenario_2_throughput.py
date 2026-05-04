@@ -81,11 +81,36 @@ OOM_WARN_THRESHOLD_BYTES = 500 * 1024 * 1024
 # Khoảng cách giữa các lần poll metrics trong lúc gửi (giây)
 METRICS_POLL_INTERVAL_S = 5
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-    datefmt="%H:%M:%S",
+import os as _os
+
+# Mỗi lần chạy ghi đè log
+_DEFAULT_LOG_DIR = _os.environ.get(
+    "DEMO_LOG_DIR",
+    _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "..", "demo_logs"),
 )
+DEFAULT_LOG_FILE = _os.path.abspath(_os.path.join(_DEFAULT_LOG_DIR, "scenario2.log"))
+
+
+def setup_demo_logging(log_file: str = DEFAULT_LOG_FILE) -> str:
+    _os.makedirs(_os.path.dirname(log_file), exist_ok=True)
+    fmt = logging.Formatter(
+        fmt="%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%H:%M:%S",
+    )
+    root = logging.getLogger()
+    for h in list(root.handlers):
+        root.removeHandler(h)
+    sh = logging.StreamHandler()
+    sh.setFormatter(fmt)
+    root.addHandler(sh)
+    fh = logging.FileHandler(log_file, mode="w", encoding="utf-8")
+    fh.setFormatter(fmt)
+    root.addHandler(fh)
+    root.setLevel(logging.INFO)
+    return log_file
+
+
+setup_demo_logging()
 logger = logging.getLogger(__name__)
 
 

@@ -50,6 +50,14 @@ import logging
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
 
+# kafka-python: publish sorted result to UIT-OUTPUT topic
+try:
+    from kafka import KafkaProducer
+    from kafka.errors import KafkaError
+    _KAFKA_AVAILABLE = True
+except ImportError:
+    _KAFKA_AVAILABLE = False
+
 # ─── Cấu hình logging ─────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -77,6 +85,36 @@ MAX_DEPTH: int = int(os.environ.get("MAX_DEPTH", "3"))
 # Avg depth = O(log 10000) ≈ 14 — an toàn. Worst case (đã sorted) = 10000.
 # Đặt 20000 để có headroom; mặc định Python = 1000 (quá thấp).
 sys.setrecursionlimit(max(20000, sys.getrecursionlimit()))
+
+# ─── Output Sink: Kafka topic UIT-OUTPUT ─────────────────────────────────────────────
+# Env var KAFKA_BOOTSTRAP (mặc định: my-kafka-broker.kafka.svc:9092)
+# Env var OUTPUT_TOPIC    (mặc định: UIT-OUTPUT)
+# Nếu không set KAFKA_BOOTSTRAP, bước publish bị bỏ qua (backward compatible).
+KAFKA_BOOTSTRAP: str = os.environ.get("KAFKA_BOOTSTRAP", "my-kafka-broker.kafka.svc:9092")
+OUTPUT_TOPIC: str = os.environ.get("OUTPUT_TOPIC", "UIT-OUTPUT")
+
+# Producer singleton — khởi tạo một lần khi module load (tái sử dụng giữa các request)
+_kafka_producer = None
+
+
+def _get_producer():
+    """Lazy-init KafkaProducer singleton. Thread-safe do OpenFaaS watchdog single-threaded."""
+    global _kafka_producer
+    if not _KAFKA_AVAILABLE:
+        return None
+    if _kafka_producer is None:
+        try:
+            _kafka_producer = KafkaProducer(
+                bootstrap_servers=KAFKA_BOOTSTRAP,
+                value_serializer=lambda v: json.dumps(v, separators=(",", ":")).encode("utf-8"),
+                acks=1,              # leader ack — đủ nhanh, không cần all-acks cho output
+                retries=3,
+                request_timeout_ms=5000,
+            )
+            logger.info(f"KafkaProducer khởi tạo OK → {KAFKA_BOOTSTRAP} / {OUTPUT_TOPIC}")
+        except Exception as exc:
+            logger.warning(f"KafkaProducer khởi tạo thất bại (output sink disabled): {exc}")
+    return _kafka_producer
 
 # ─── Cấu hình Multiprocessing Start Method ───────────────────────────────────
 # [MULTI-PROCESSING] 'spawn' vs 'fork':
@@ -410,6 +448,26 @@ def handle(event, context):
         "threshold":     PARALLEL_THRESHOLD,
         "data":          sorted_data,
     }
+
+    # ── 5. Publish sorted result → Kafka UIT-OUTPUT (Output Sink) ────────────
+    # Đây là bước "Collect" hoàn thiện vòng lặp Split → Sort → Collect.
+    # Consumer subscriber (scenario script hoặc merger function) có thể đọc
+    # từ UIT-OUTPUT để xác minh thứ tự và gộp kết quả (k-way merge).
+    producer = _get_producer()
+    if producer is not None:
+        try:
+            # Publish compact result (bỏ trường data nếu quá lớn cho log,
+            # nhưng giữ nguyên để merger function có thể đọc và merge)
+            future = producer.send(OUTPUT_TOPIC, value=result)
+            future.get(timeout=5)  # block tối đa 5s để đảm bảo ghi thành công
+            logger.info(
+                f"Published chunk_id={chunk_id} → {OUTPUT_TOPIC} "
+                f"(size={n}, is_sorted={sorted_data == sorted(sorted_data[:100])})"
+            )
+        except (KafkaError, Exception) as exc:
+            # Publish thất bại KHÔNG ảnh hưởng HTTP response → kafka-connector
+            # vẫn commit offset input → function không retry vô hạn.
+            logger.warning(f"Publish to {OUTPUT_TOPIC} thất bại (non-fatal): {exc}")
 
     return {
         "statusCode": 200,
