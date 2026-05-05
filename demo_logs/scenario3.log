@@ -1,109 +1,229 @@
-05:43:48 [INFO] ══════════════════════════════════════════════════════════════════════
-05:43:48 [INFO]   Kịch bản 3: Fault Tolerance Test
-05:43:48 [INFO]   Broker     : 100.107.243.97:30092
-05:43:48 [INFO]   Target node: k3s-worker2 (100.108.56.79)
-05:43:48 [INFO]   Mode       : kubectl drain
-05:43:48 [INFO]   Fail delay : 15s (pipeline chạy trước khi giả lập lỗi)
-05:43:48 [INFO]   Target RTO : < 60s (Recovery Time Objective)
-05:43:48 [INFO] ══════════════════════════════════════════════════════════════════════
-05:43:48 [INFO] 
+15:55:07 [INFO] ══════════════════════════════════════════════════════════════════════
+15:55:07 [INFO]   Kịch bản 3: Fault Tolerance Test — 2026-05-04T15:55:07.748363
+15:55:07 [INFO]   Log file   : /home/master/demo_logs/scenario3.log (ghi đè mỗi lần chạy)
+15:55:07 [INFO]   Broker     : 100.107.243.97:30092
+15:55:07 [INFO]   Target node: k3s-worker2 (100.108.56.79)
+15:55:07 [INFO]   Mode       : kubectl drain
+15:55:07 [INFO]   Fail delay : 15s (pipeline chạy trước khi giả lập lỗi)
+15:55:07 [INFO]   Target RTO : < 60s (Recovery Time Objective)
+15:55:07 [INFO] ══════════════════════════════════════════════════════════════════════
+15:55:07 [INFO] 
 [PHASE 0] Kiểm tra trạng thái ban đầu của cluster...
-05:43:48 [INFO]   Node status: {'k3s-master': 'True', 'k3s-worker1': 'True', 'k3s-worker2': 'True'}
-05:43:48 [INFO]   [NODE_STATUS_INITIAL] {'k3s-master': 'True', 'k3s-worker1': 'True', 'k3s-worker2': 'True'}
-05:43:48 [INFO]   Pods trên Worker1: 1
-05:43:48 [INFO]   Pods trên Worker2: 1
-05:43:48 [INFO] 
+15:55:08 [INFO]   Node status: {'k3s-master': 'True', 'k3s-worker1': 'True', 'k3s-worker2': 'True'}
+15:55:08 [INFO]   [NODE_STATUS_INITIAL] {'k3s-master': 'True', 'k3s-worker1': 'True', 'k3s-worker2': 'True'}
+15:55:08 [INFO]   Pods trên Worker1: 0
+15:55:08 [INFO]   Pods trên Worker2: 1
+15:55:08 [INFO] 
 [PHASE 1] Bắt đầu gửi chunks liên tục vào Kafka...
-05:43:48 [INFO]   [PRODUCER_STARTED] Gửi 20 chunks × 50,000 phần tử
-05:43:48 [INFO] 
+15:55:08 [INFO]   [PRODUCER_STARTED] Gửi 20 chunks × 50,000 phần tử
+15:55:08 [INFO] 
 [PHASE 2] Đợi 15s để pipeline chạy ổn định...
-05:43:48 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=bootstrap-0 host=100.107.243.97:30092 <connecting> [IPv4 ('100.107.243.97', 30092)]>: connecting to 100.107.243.97:30092 [('100.107.243.97', 30092) IPv4]
-05:43:48 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=bootstrap-0 host=100.107.243.97:30092 <checking_api_versions_recv> [IPv4 ('100.107.243.97', 30092)]>: Broker version identified as 2.6
-05:43:48 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=bootstrap-0 host=100.107.243.97:30092 <connected> [IPv4 ('100.107.243.97', 30092)]>: Connection complete.
-05:43:49 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=100 host=192.168.125.105:30092 <connecting> [IPv4 ('192.168.125.105', 30092)]>: connecting to 192.168.125.105:30092 [('192.168.125.105', 30092) IPv4]
-05:43:49 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=100 host=192.168.125.105:30092 <connected> [IPv4 ('192.168.125.105', 30092)]>: Connection complete.
-05:43:49 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=bootstrap-0 host=100.107.243.97:30092 <connected> [IPv4 ('100.107.243.97', 30092)]>: Closing connection. 
-05:43:49 [INFO]   [PRODUCER] Đã gửi chunk 1/20
-05:43:51 [INFO]   [PRODUCER] Đã gửi chunk 2/20
-05:43:53 [INFO]   [PRODUCER] Đã gửi chunk 3/20
-05:43:53 [INFO]   T+ 5s | Nodes={'k3s-master': 'True', 'k3s-worker1': 'True', 'k3s-worker2': 'True'} | Pods W1=1 W2=1 | Chunks sent=3
-05:43:55 [INFO]   [PRODUCER] Đã gửi chunk 4/20
-05:43:57 [INFO]   [PRODUCER] Đã gửi chunk 5/20
-05:43:59 [INFO]   T+10s | Nodes={'k3s-master': 'True', 'k3s-worker1': 'True', 'k3s-worker2': 'True'} | Pods W1=1 W2=1 | Chunks sent=5
-05:43:59 [INFO]   [PRODUCER] Đã gửi chunk 6/20
-05:44:02 [INFO]   [PRODUCER] Đã gửi chunk 7/20
-05:44:04 [INFO]   [PRODUCER] Đã gửi chunk 8/20
-05:44:05 [INFO]   T+15s | Nodes={'k3s-master': 'True', 'k3s-worker1': 'True', 'k3s-worker2': 'True'} | Pods W1=1 W2=1 | Chunks sent=8
-05:44:05 [INFO] 
+15:55:08 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=bootstrap-0 host=100.107.243.97:30092 <connecting> [IPv4 ('100.107.243.97', 30092)]>: connecting to 100.107.243.97:30092 [('100.107.243.97', 30092) IPv4]
+15:55:08 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=bootstrap-0 host=100.107.243.97:30092 <checking_api_versions_recv> [IPv4 ('100.107.243.97', 30092)]>: Broker version identified as 2.6
+15:55:08 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=bootstrap-0 host=100.107.243.97:30092 <connected> [IPv4 ('100.107.243.97', 30092)]>: Connection complete.
+15:55:09 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=0 host=192.168.125.106:30093 <connecting> [IPv4 ('192.168.125.106', 30093)]>: connecting to 192.168.125.106:30093 [('192.168.125.106', 30093) IPv4]
+15:55:09 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=0 host=192.168.125.106:30093 <connected> [IPv4 ('192.168.125.106', 30093)]>: Connection complete.
+15:55:09 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=bootstrap-0 host=100.107.243.97:30092 <connected> [IPv4 ('100.107.243.97', 30092)]>: Closing connection. 
+15:55:09 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=100 host=192.168.125.105:30092 <connecting> [IPv4 ('192.168.125.105', 30092)]>: connecting to 192.168.125.105:30092 [('192.168.125.105', 30092) IPv4]
+15:55:09 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=100 host=192.168.125.105:30092 <connected> [IPv4 ('192.168.125.105', 30092)]>: Connection complete.
+15:55:09 [INFO]   [PRODUCER] Đã gửi chunk 1/20 (chunk_id=0)
+15:55:11 [INFO]   [PRODUCER] Đã gửi chunk 2/20 (chunk_id=1)
+15:55:13 [INFO]   [PRODUCER] Đã gửi chunk 3/20 (chunk_id=2)
+15:55:14 [INFO]   T+ 5s | Nodes={'k3s-master': 'True', 'k3s-worker1': 'True', 'k3s-worker2': 'True'} | Pods W1=0 W2=1 | Chunks sent=3
+15:55:15 [INFO]   [PRODUCER] Đã gửi chunk 4/20 (chunk_id=3)
+15:55:18 [INFO]   [PRODUCER] Đã gửi chunk 5/20 (chunk_id=4)
+15:55:19 [INFO]   T+10s | Nodes={'k3s-master': 'True', 'k3s-worker1': 'True', 'k3s-worker2': 'True'} | Pods W1=0 W2=1 | Chunks sent=5
+15:55:20 [INFO]   [PRODUCER] Đã gửi chunk 6/20 (chunk_id=5)
+15:55:22 [INFO]   [PRODUCER] Đã gửi chunk 7/20 (chunk_id=6)
+15:55:24 [INFO]   [PRODUCER] Đã gửi chunk 8/20 (chunk_id=7)
+15:55:24 [INFO]   T+15s | Nodes={'k3s-master': 'True', 'k3s-worker1': 'True', 'k3s-worker2': 'True'} | Pods W1=0 W2=1 | Chunks sent=8
+15:55:25 [INFO] 
+[PRE-FAIL SNAPSHOT]
+15:55:25 [INFO]   Pods trên Worker2 trước khi tắt: 1
+15:55:25 [INFO]     parallel-sort-76579fd694-khwtt   1/1   Running   0     23s   10.42.3.212   k3s-worker2   <none>   <none>
+15:55:25 [INFO]   Chunk đang được Worker2 xử lý (mới nhất gửi vào Kafka): chunk_id=7
+15:55:25 [INFO]   [TARGET_CHUNK_SELECTED] chunk_id=7 (đang xử lý trên Worker2 lúc tắt)
+15:55:25 [INFO] 
 [PHASE 3] Giả lập lỗi Worker2 (100.108.56.79)...
-05:44:05 [INFO]   [FAIL_START] Giả lập lỗi Worker2 (100.108.56.79)
-05:44:05 [INFO]   [DRAIN] kubectl drain k3s-worker2...
-05:44:06 [INFO]   [PRODUCER] Đã gửi chunk 9/20
-05:44:08 [INFO]   [PRODUCER] Đã gửi chunk 10/20
-05:44:10 [INFO]   [PRODUCER] Đã gửi chunk 11/20
-05:44:10 [INFO]   ✓ kubectl drain k3s-worker2 thành công
-05:44:10 [INFO]   [FAIL_INJECTED] Worker2 đã bị tắt lúc 05:44:10
-05:44:10 [INFO] 
-[PHASE 4] Theo dõi quá trình phục hồi trong 180s...
-05:44:10 [INFO]   [DRAIN_COMPLETE] kubectl drain hoàn thành — đánh dấu thời điểm lỗi
-05:44:12 [INFO]   [PRODUCER] Đã gửi chunk 12/20
-05:44:12 [INFO]   [PODS_RESCHEDULED] Pods được reschedule sang Worker1 (W1: 1 → 1 pods) sau 7.6s từ lỗi
-05:44:12 [INFO]   [FULLY_RECOVERED] Cluster phục hồi sau 7.6s
-05:44:14 [INFO]   [PRODUCER] Đã gửi chunk 13/20
-05:44:16 [INFO]   [PRODUCER] Đã gửi chunk 14/20
-05:44:18 [INFO]   [PRODUCER] Đã gửi chunk 15/20
-05:44:19 [INFO]   T+  15s | W2=True | Pods W1=1 W2=0 | Sent=15 Errors=0 | Offset=N/A (kubectl exec lỗi)
-05:44:20 [INFO]   [PRODUCER] Đã gửi chunk 16/20
-05:44:22 [INFO]   [PRODUCER] Đã gửi chunk 17/20
-05:44:24 [INFO]   [PRODUCER] Đã gửi chunk 18/20
-05:44:27 [INFO]   [PRODUCER] Đã gửi chunk 19/20
-05:44:27 [INFO]   T+  23s | W2=True | Pods W1=1 W2=0 | Sent=19 Errors=0 | Offset=N/A (kubectl exec lỗi)
-05:44:29 [INFO]   [PRODUCER] Đã gửi chunk 20/20
-05:44:31 [INFO] <KafkaProducer client_id=kafka-python-producer-1 transactional_id=None>: Closing the Kafka producer with 9223372036.0 secs timeout.
-05:44:31 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=100 host=192.168.125.105:30092 <connected> [IPv4 ('192.168.125.105', 30092)]>: Closing connection. 
-05:44:35 [INFO]   T+  30s | W2=True | Pods W1=1 W2=0 | Sent=20 Errors=0 | Offset=N/A (kubectl exec lỗi)
-05:44:44 [INFO]   T+  39s | W2=True | Pods W1=1 W2=0 | Sent=20 Errors=0 | Offset=N/A (kubectl exec lỗi)
-05:44:52 [INFO]   T+  47s | W2=True | Pods W1=1 W2=0 | Sent=20 Errors=0 | Offset=N/A (kubectl exec lỗi)
-05:45:00 [INFO]   T+  55s | W2=True | Pods W1=1 W2=0 | Sent=20 Errors=0 | Offset=N/A (kubectl exec lỗi)
-05:45:05 [INFO]   ✓ Đã phục hồi hoàn toàn — kết thúc monitoring sớm.
-05:45:05 [INFO] 
+15:55:25 [INFO]   [FAIL_START] Giả lập lỗi Worker2 (100.108.56.79)
+15:55:25 [INFO]   [DRAIN] kubectl drain k3s-worker2...
+15:55:26 [INFO]   [PRODUCER] Đã gửi chunk 9/20 (chunk_id=8)
+15:55:28 [ERROR] <BrokerConnection client_id=kafka-python-producer-1, node_id=0 host=192.168.125.106:30093 <connected> [IPv4 ('192.168.125.106', 30093)]>: Closing connection. KafkaConnectionError: Socket EVENT_READ without in-flight-requests
+15:55:28 [WARNING] Node 0 connection failed -- refreshing metadata
+15:55:28 [INFO]   [PRODUCER] Đã gửi chunk 10/20 (chunk_id=9)
+15:55:30 [INFO]   ✓ kubectl drain k3s-worker2 thành công
+15:55:30 [INFO]   [FAIL_INJECTED] Worker2 đã bị tắt lúc 15:55:30
+15:55:30 [INFO] 
+[PHASE 4] Theo dõi quá trình phục hồi trong 60s...
+15:55:30 [INFO]   [DRAIN_COMPLETE] kubectl drain hoàn thành — đánh dấu thời điểm lỗi
+15:55:30 [INFO]   [PRODUCER] Đã gửi chunk 11/20 (chunk_id=10)
+15:55:32 [INFO]   [PRODUCER] Đã gửi chunk 12/20 (chunk_id=11)
+15:55:34 [INFO]   [PRODUCER] Đã gửi chunk 13/20 (chunk_id=12)
+15:55:36 [INFO]   [PRODUCER] Đã gửi chunk 14/20 (chunk_id=13)
+15:55:39 [INFO]   [PRODUCER] Đã gửi chunk 15/20 (chunk_id=14)
+15:55:41 [INFO]   [PRODUCER] Đã gửi chunk 16/20 (chunk_id=15)
+15:55:41 [INFO]   [PODS_RESCHEDULED] Pods được reschedule sang Worker1 (W1: 0 → 1 pods) sau 16.7s từ lỗi
+15:55:41 [INFO]   [FULLY_RECOVERED] Cluster phục hồi sau 16.7s
+15:55:43 [INFO]   [PRODUCER] Đã gửi chunk 17/20 (chunk_id=16)
+15:55:45 [INFO]   [PRODUCER] Đã gửi chunk 18/20 (chunk_id=17)
+15:55:47 [INFO]   [PRODUCER] Đã gửi chunk 19/20 (chunk_id=18)
+15:55:49 [INFO]   [PRODUCER] Đã gửi chunk 20/20 (chunk_id=19)
+15:55:51 [INFO] <KafkaProducer client_id=kafka-python-producer-1 transactional_id=None>: Closing the Kafka producer with 9223372036.0 secs timeout.
+15:55:51 [INFO] <BrokerConnection client_id=kafka-python-producer-1, node_id=100 host=192.168.125.105:30092 <connected> [IPv4 ('192.168.125.105', 30092)]>: Closing connection. 
+15:56:24 [INFO]   T+  59s | W2=True | Pods W1=1 W2=0 | Sent=20 Errors=0 | Offset=N/A (kubectl exec lỗi)
+15:56:35 [INFO]   ✓ Đã phục hồi hoàn toàn — kết thúc monitoring sớm.
+15:56:35 [INFO] 
 [PHASE 5] Khôi phục Worker2...
-05:45:05 [INFO]   [RESTORE] kubectl uncordon k3s-worker2...
-05:45:05 [INFO]   ✓ Node đã được uncordon
-05:45:05 [INFO]   [NODE_RESTORED] Worker2 (100.108.56.79) đã được khôi phục
-05:45:05 [INFO] 
+15:56:35 [INFO]   [RESTORE] kubectl uncordon k3s-worker2...
+15:56:35 [INFO]   ✓ Node đã được uncordon
+15:56:35 [INFO]   [NODE_RESTORED] Worker2 (100.108.56.79) đã được khôi phục
+15:56:35 [INFO] 
 ══════════════════════════════════════════════════════════════════════
-05:45:05 [INFO]   KẾT QUẢ — Kịch bản 3: Fault Tolerance
-05:45:05 [INFO] ══════════════════════════════════════════════════════════════════════
-05:45:05 [INFO]   Thời gian phát hiện NotReady : 0.0s
-05:45:05 [INFO]   [METRIC_DETECT_TIME] 0.0s
-05:45:05 [INFO]   Thời gian reschedule pods    : 7.6s
-05:45:05 [INFO]   [METRIC_RESCHEDULE_TIME] 7.6s
-05:45:05 [INFO]   Tổng RTO (Recovery Time)     : 7.6s
-05:45:05 [INFO]   ✓ PASS: RTO 7.6s < mục tiêu 60s
-05:45:05 [INFO]   [METRIC_TOTAL_RTO] 7.6s
-05:45:05 [INFO] 
+15:56:35 [INFO]   KẾT QUẢ — Kịch bản 3: Fault Tolerance
+15:56:35 [INFO] ══════════════════════════════════════════════════════════════════════
+15:56:35 [INFO]   Thời gian phát hiện NotReady : 0.0s
+15:56:35 [INFO]   [METRIC_DETECT_TIME] 0.0s
+15:56:35 [INFO]   Thời gian reschedule pods    : 16.7s
+15:56:35 [INFO]   [METRIC_RESCHEDULE_TIME] 16.7s
+15:56:35 [INFO]   Tổng RTO (Recovery Time)     : 16.7s
+15:56:35 [INFO]   ✓ PASS: RTO 16.7s < mục tiêu 60s
+15:56:35 [INFO]   [METRIC_TOTAL_RTO] 16.7s
+15:56:35 [INFO] 
   Chunks đã gửi  : 20/20
-05:45:05 [INFO]   Gửi lỗi       : 0
-05:45:05 [INFO]   ✓ PASS: Không mất message — Kafka retention bảo toàn dữ liệu
-05:45:05 [INFO] 
+15:56:35 [INFO]   Gửi lỗi       : 0
+15:56:35 [INFO]   ✓ PASS: Không mất message — Kafka retention bảo toàn dữ liệu
+15:56:35 [INFO] 
+[PHASE 6] Đợi connector xử lý hết 20 chunks rồi đọc UIT-OUTPUT...
+15:57:24 [INFO]   [WAIT] UIT-OUTPUT total messages = 0/20
+15:57:34 [INFO]   [WAIT] UIT-OUTPUT total messages = 0/20
+15:57:45 [INFO]   [WAIT] UIT-OUTPUT total messages = 0/20
+15:58:57 [INFO]   [WAIT] UIT-OUTPUT total messages = 0/20
+15:59:07 [INFO]   [WAIT] UIT-OUTPUT total messages = 0/20
+15:59:17 [INFO]   [WAIT] UIT-OUTPUT total messages = 0/20
+16:00:53 [INFO]   [WAIT] UIT-OUTPUT total messages = 1423/20
+16:00:53 [INFO]   ✓ Đủ 1423 messages — bắt đầu collect
+16:00:53 [INFO]   [COLLECT] Đọc tối đa 20 chunks từ UIT-OUTPUT (timeout=300s)...
+16:00:53 [INFO] <BrokerConnection client_id=kafka-python-2.3.1, node_id=bootstrap-0 host=100.107.243.97:30092 <connecting> [IPv4 ('100.107.243.97', 30092)]>: connecting to 100.107.243.97:30092 [('100.107.243.97', 30092) IPv4]
+16:00:53 [INFO] <BrokerConnection client_id=kafka-python-2.3.1, node_id=bootstrap-0 host=100.107.243.97:30092 <checking_api_versions_recv> [IPv4 ('100.107.243.97', 30092)]>: Broker version identified as 2.6
+16:00:53 [INFO] <BrokerConnection client_id=kafka-python-2.3.1, node_id=bootstrap-0 host=100.107.243.97:30092 <connected> [IPv4 ('100.107.243.97', 30092)]>: Connection complete.
+16:00:53 [INFO] Updating subscribed topics to: ('UIT-OUTPUT',)
+16:00:53 [INFO] <BrokerConnection client_id=kafka-python-2.3.1, node_id=0 host=192.168.125.106:30093 <connecting> [IPv4 ('192.168.125.106', 30093)]>: connecting to 192.168.125.106:30093 [('192.168.125.106', 30093) IPv4]
+16:00:53 [INFO] <BrokerConnection client_id=kafka-python-2.3.1, node_id=0 host=192.168.125.106:30093 <connected> [IPv4 ('192.168.125.106', 30093)]>: Connection complete.
+16:00:53 [INFO] <BrokerConnection client_id=kafka-python-2.3.1, node_id=bootstrap-0 host=100.107.243.97:30092 <connected> [IPv4 ('100.107.243.97', 30092)]>: Closing connection. 
+16:00:53 [INFO] Coordinator for group/scenario3-collector-1777924853 is BrokerMetadata(nodeId='coordinator-100', host='192.168.125.105', port=30092, rack=None)
+16:00:53 [INFO] Discovered coordinator coordinator-100 for group scenario3-collector-1777924853
+16:00:53 [INFO] Starting new heartbeat thread
+16:00:53 [INFO] Revoking previously assigned partitions set() for group scenario3-collector-1777924853
+16:00:53 [INFO] Failed to join group scenario3-collector-1777924853: NodeNotReadyError: coordinator-100
+16:00:53 [INFO] <BrokerConnection client_id=kafka-python-2.3.1, node_id=coordinator-100 host=192.168.125.105:30092 <connecting> [IPv4 ('192.168.125.105', 30092)]>: connecting to 192.168.125.105:30092 [('192.168.125.105', 30092) IPv4]
+16:00:53 [INFO] Failed to join group scenario3-collector-1777924853: NodeNotReadyError: coordinator-100
+16:00:53 [INFO] <BrokerConnection client_id=kafka-python-2.3.1, node_id=coordinator-100 host=192.168.125.105:30092 <connected> [IPv4 ('192.168.125.105', 30092)]>: Connection complete.
+16:00:53 [INFO] (Re-)joining group scenario3-collector-1777924853
+16:00:53 [INFO] Received member id kafka-python-2.3.1-05c7c6aa-116a-48a3-a51e-d53056c11710 for group scenario3-collector-1777924853; will retry join-group
+16:00:53 [INFO] Failed to join group scenario3-collector-1777924853: [Error 79] MemberIdRequiredError
+16:00:53 [INFO] (Re-)joining group scenario3-collector-1777924853
+16:00:56 [INFO] Successfully joined group scenario3-collector-1777924853 <Generation 1 (member_id: kafka-python-2.3.1-05c7c6aa-116a-48a3-a51e-d53056c11710, protocol: range)>
+16:00:56 [INFO] Elected group leader -- performing partition assignments using range
+16:00:56 [INFO] Updated partition assignment: [TopicPartition(topic='UIT-OUTPUT', partition=0)]
+16:00:56 [INFO] Setting newly assigned partitions {TopicPartition(topic='UIT-OUTPUT', partition=0)} for group scenario3-collector-1777924853
+16:00:56 [INFO] Resetting offset for partition TopicPartition(topic='UIT-OUTPUT', partition=0) to offset 0.
+16:00:57 [INFO]     [ 1/20] chunk_id=22 size=50000 sort_ms=12543.13
+16:00:57 [INFO]     [ 2/20] chunk_id=23 size=50000 sort_ms=7215.88
+16:00:57 [INFO]     [ 3/20] chunk_id=24 size=50000 sort_ms=9375.11
+16:00:57 [INFO]     [ 4/20] chunk_id=25 size=50000 sort_ms=10065.18
+16:00:57 [INFO]     [ 5/20] chunk_id=32 size=50000 sort_ms=6980.09
+16:00:57 [INFO]     [ 6/20] chunk_id=33 size=50000 sort_ms=3256.39
+16:00:57 [INFO]     [ 7/20] chunk_id=34 size=50000 sort_ms=5991.87
+16:00:57 [INFO]     [ 8/20] chunk_id=35 size=50000 sort_ms=5434.39
+16:00:57 [INFO]     [ 9/20] chunk_id=36 size=50000 sort_ms=5589.53
+16:00:57 [INFO]     [10/20] chunk_id=37 size=50000 sort_ms=5474.08
+16:00:57 [INFO]     [11/20] chunk_id=38 size=50000 sort_ms=4502.45
+16:00:57 [INFO]     [12/20] chunk_id=39 size=50000 sort_ms=4154.35
+16:00:57 [INFO]     [13/20] chunk_id=40 size=50000 sort_ms=6651.44
+16:00:57 [INFO]     [14/20] chunk_id=41 size=50000 sort_ms=4079.99
+16:00:57 [INFO]     [15/20] chunk_id=42 size=50000 sort_ms=5325.95
+16:00:57 [INFO]     [16/20] chunk_id=43 size=50000 sort_ms=5262.8
+16:00:57 [INFO]     [17/20] chunk_id=44 size=50000 sort_ms=5392.95
+16:00:57 [INFO]     [18/20] chunk_id=45 size=50000 sort_ms=4413.95
+16:00:58 [INFO]     [19/20] chunk_id=46 size=50000 sort_ms=6625.31
+16:00:58 [INFO]     [20/20] chunk_id=47 size=50000 sort_ms=4058.98
+16:00:58 [INFO] Stopping heartbeat thread
+16:00:58 [INFO] Leaving consumer group scenario3-collector-1777924853 (member kafka-python-2.3.1-05c7c6aa-116a-48a3-a51e-d53056c11710).
+16:00:58 [INFO] LeaveGroup request for group scenario3-collector-1777924853 returned successfully
+16:00:58 [INFO] <BrokerConnection client_id=kafka-python-2.3.1, node_id=0 host=192.168.125.106:30093 <connected> [IPv4 ('192.168.125.106', 30093)]>: Closing connection. 
+16:00:58 [INFO] <BrokerConnection client_id=kafka-python-2.3.1, node_id=coordinator-100 host=192.168.125.105:30092 <connected> [IPv4 ('192.168.125.105', 30092)]>: Closing connection. 
+16:00:58 [INFO] 
+16:00:58 [INFO]   ══════════════════════════════════════════════════════════════════════
+16:00:58 [INFO]   CHUNKS ĐÃ SẮP XẾP SAU PHỤC HỒI — Tổng: 20/20
+16:00:58 [INFO]   ══════════════════════════════════════════════════════════════════════
+16:00:58 [INFO]    chunk_id |    size |   sort_ms |        min |        max | sorted?
+16:00:58 [INFO]   ──────────────────────────────────────────────────────────────────────
+16:00:58 [INFO]          22 |  50,000 |  12543.13 |        125 |    9999556 |     YES
+16:00:58 [INFO]          23 |  50,000 |   7215.88 |         92 |    9999979 |     YES
+16:00:58 [INFO]          24 |  50,000 |   9375.11 |        450 |    9999850 |     YES
+16:00:58 [INFO]          25 |  50,000 |  10065.18 |         68 |    9999794 |     YES
+16:00:58 [INFO]          32 |  50,000 |   6980.09 |        304 |    9999922 |     YES
+16:00:58 [INFO]          33 |  50,000 |   3256.39 |        216 |    9999775 |     YES
+16:00:58 [INFO]          34 |  50,000 |   5991.87 |        549 |    9999802 |     YES
+16:00:58 [INFO]          35 |  50,000 |   5434.39 |        472 |    9999984 |     YES
+16:00:58 [INFO]          36 |  50,000 |   5589.53 |         26 |    9999698 |     YES
+16:00:58 [INFO]          37 |  50,000 |   5474.08 |        152 |    9999934 |     YES
+16:00:58 [INFO]          38 |  50,000 |   4502.45 |        157 |    9999664 |     YES
+16:00:58 [INFO]          39 |  50,000 |   4154.35 |         25 |    9999442 |     YES
+16:00:58 [INFO]          40 |  50,000 |   6651.44 |         32 |    9999945 |     YES
+16:00:58 [INFO]          41 |  50,000 |   4079.99 |        587 |    9999918 |     YES
+16:00:58 [INFO]          42 |  50,000 |   5325.95 |         45 |    9999829 |     YES
+16:00:58 [INFO]          43 |  50,000 |    5262.8 |        159 |    9999430 |     YES
+16:00:58 [INFO]          44 |  50,000 |   5392.95 |        421 |    9999886 |     YES
+16:00:58 [INFO]          45 |  50,000 |   4413.95 |         98 |    9999944 |     YES
+16:00:58 [INFO]          46 |  50,000 |   6625.31 |         33 |    9999800 |     YES
+16:00:58 [INFO]          47 |  50,000 |   4058.98 |        176 |    9998839 |     YES
+16:00:58 [INFO] 
+16:00:58 [INFO]   ══════════════════════════════════════════════════════════════════════
+16:00:58 [INFO]   TARGET CHUNK — chunk được Worker2 xử lý lúc bị tắt
+16:00:58 [INFO]   ══════════════════════════════════════════════════════════════════════
+16:00:58 [WARNING]   ⚠ chunk_id=7 chưa thấy trong UIT-OUTPUT, dùng chunk gần nhất: chunk_id=22
+16:00:58 [INFO]   chunk_id        : 22
+16:00:58 [INFO]   size            : 50,000 phần tử
+16:00:58 [INFO]   sort_ms         : 12543.13
+16:00:58 [INFO]   total_chunks    : 50
+16:00:58 [INFO]   timestamp_ms    : N/A
+16:00:58 [INFO]   min / max       : 125 / 9999556
+16:00:58 [INFO]   is_sorted       : ✅ YES
+16:00:58 [INFO]   first 20 values : [125, 351, 434, 1001, 1163, 1337, 1526, 1669, 1960, 2239, 2888, 3240, 3270, 3274, 3379, 3388, 3466, 3853, 3897, 4068]
+16:00:58 [INFO]   last  20 values : [9995647, 9995772, 9995821, 9995834, 9995938, 9996007, 9996369, 9996793, 9997206, 9997735, 9997916, 9998072, 9998240, 9998254, 9998501, 9998568, 9998603, 9998891, 9999232, 9999556]
+16:00:58 [INFO]   middle 10 (idx 25000): [4986197, 4986213, 4986228, 4986517, 4986617, 4987229, 4987330, 4987616, 4987708, 4987789]
+16:00:58 [INFO] 
+16:00:58 [INFO]   ✅ TARGET CHUNK đã được sắp xếp đúng và KHÔNG MẤT DỮ LIỆU
+16:00:58 [INFO]      → Khi Worker2 sập, chunk này được Kafka giữ lại,
+16:00:58 [INFO]        reschedule sang Worker1 xử lý tiếp, rồi flush vào UIT-OUTPUT.
+16:00:58 [INFO] 
+16:00:58 [INFO]   Tổng chunks thu được: 20/20
+16:00:58 [INFO]   ✓ PASS: Đầy đủ dữ liệu — KHÔNG MẤT chunk nào sau khi worker2 sập + phục hồi
+16:00:58 [INFO]   K-way merge: 1,000,000 elements | is_sorted=✅ YES
+16:00:58 [INFO]   Min=25  Max=9999984
+16:00:58 [INFO]   First 10: [25, 26, 32, 33, 45, 53, 68, 70, 92, 98]
+16:00:58 [INFO]   Last  10: [9999886, 9999902, 9999916, 9999918, 9999922, 9999934, 9999944, 9999945, 9999979, 9999984]
+16:00:58 [INFO]   ✓ Đã ghi log chunks → /home/master/demo_logs/scenario3_chunks.log
+16:00:58 [INFO] 
   TIMELINE SỰ KIỆN:
-05:45:05 [INFO]   Thời gian  Loại                      Chi tiết
-05:45:05 [INFO]   ────────── ───────────────────────── ──────────────────────────────
-05:45:05 [INFO]   05:43:48   NODE_STATUS_INITIAL       {'k3s-master': 'True', 'k3s-worker1': 'True', 'k3s-worker2':
-05:45:05 [INFO]   05:43:48   PRODUCER_STARTED          Gửi 20 chunks × 50,000 phần tử
-05:45:05 [INFO]   05:44:05   FAIL_START                Giả lập lỗi Worker2 (100.108.56.79)
-05:45:05 [INFO]   05:44:10   FAIL_INJECTED             Worker2 đã bị tắt lúc 05:44:10
-05:45:05 [INFO]   05:44:10   DRAIN_COMPLETE            kubectl drain hoàn thành — đánh dấu thời điểm lỗi
-05:45:05 [INFO]   05:44:12   PODS_RESCHEDULED          Pods được reschedule sang Worker1 (W1: 1 → 1 pods) sau 7.6s 
-05:45:05 [INFO]   05:44:12   FULLY_RECOVERED           Cluster phục hồi sau 7.6s
-05:45:05 [INFO]   05:45:05   NODE_RESTORED             Worker2 (100.108.56.79) đã được khôi phục
-05:45:05 [INFO]   05:45:05   METRIC_DETECT_TIME        0.0s
-05:45:05 [INFO]   05:45:05   METRIC_RESCHEDULE_TIME    7.6s
-05:45:05 [INFO]   05:45:05   METRIC_TOTAL_RTO          7.6s
-05:45:05 [INFO] 
+16:00:58 [INFO]   Thời gian  Loại                      Chi tiết
+16:00:58 [INFO]   ────────── ───────────────────────── ──────────────────────────────
+16:00:58 [INFO]   15:55:08   NODE_STATUS_INITIAL       {'k3s-master': 'True', 'k3s-worker1': 'True', 'k3s-worker2':
+16:00:58 [INFO]   15:55:08   PRODUCER_STARTED          Gửi 20 chunks × 50,000 phần tử
+16:00:58 [INFO]   15:55:25   TARGET_CHUNK_SELECTED     chunk_id=7 (đang xử lý trên Worker2 lúc tắt)
+16:00:58 [INFO]   15:55:25   FAIL_START                Giả lập lỗi Worker2 (100.108.56.79)
+16:00:58 [INFO]   15:55:30   FAIL_INJECTED             Worker2 đã bị tắt lúc 15:55:30
+16:00:58 [INFO]   15:55:30   DRAIN_COMPLETE            kubectl drain hoàn thành — đánh dấu thời điểm lỗi
+16:00:58 [INFO]   15:55:41   PODS_RESCHEDULED          Pods được reschedule sang Worker1 (W1: 0 → 1 pods) sau 16.7s
+16:00:58 [INFO]   15:55:41   FULLY_RECOVERED           Cluster phục hồi sau 16.7s
+16:00:58 [INFO]   15:56:35   NODE_RESTORED             Worker2 (100.108.56.79) đã được khôi phục
+16:00:58 [INFO]   15:56:35   METRIC_DETECT_TIME        0.0s
+16:00:58 [INFO]   15:56:35   METRIC_RESCHEDULE_TIME    16.7s
+16:00:58 [INFO]   15:56:35   METRIC_TOTAL_RTO          16.7s
+16:00:58 [INFO] 
   Hướng dẫn verify thêm:
-05:45:05 [INFO]   kubectl get nodes -w
-05:45:05 [INFO]   kubectl get pods -n openfaas-fn -w
-05:45:05 [INFO]   kubectl describe pod -n openfaas-fn -l faas_function=parallel-sort
-05:45:05 [INFO]   Grafana: http://100.107.243.97:30030 — 'Kubernetes / Nodes' dashboard
+16:00:58 [INFO]   kubectl get nodes -w
+16:00:58 [INFO]   kubectl get pods -n openfaas-fn -w
+16:00:58 [INFO]   kubectl describe pod -n openfaas-fn -l faas_function=parallel-sort
+16:00:58 [INFO]   Grafana: http://100.107.243.97:30030 — 'Kubernetes / Nodes' dashboard
